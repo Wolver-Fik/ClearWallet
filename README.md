@@ -49,29 +49,6 @@ clear-wallet/
         ├── it.js  de.js  ru.js  ja.js
 ```
 
-### Run locally
-
-A local HTTP server is required for the service worker (opening `index.html` directly with `file://` disables PWA features).
-
-```bash
-# Python 3
-python -m http.server 8080
-
-# or Node.js
-npx serve .
-```
-
-Then open <http://localhost:8080>.
-
-### Deploy to GitHub Pages
-
-1. Push the repository to GitHub.
-2. Open **Settings → Pages**.
-3. Select the branch and the root folder.
-4. The app will be available at `https://wolver-fik.github.io/ClearWallet/`.
-
-All asset paths are relative (`./`), so the app works from any subdirectory.
-
 ### Languages and currencies
 
 - The interface language is detected from `navigator.language` on the first visit and saved in `localStorage` under `clearwallet-lang-v1`.
@@ -148,29 +125,6 @@ clear-wallet/
         ├── en.js  es.js  pt.js  fr.js
         ├── it.js  de.js  ru.js  ja.js
 ```
-
-### Ejecutar en local
-
-Se necesita un servidor HTTP local para el service worker (abrir `index.html` directamente con `file://` desactiva las funciones PWA).
-
-```bash
-# Python 3
-python -m http.server 8080
-
-# o Node.js
-npx serve .
-```
-
-Después abre <http://localhost:8080>.
-
-### Publicar en GitHub Pages
-
-1. Sube el repositorio a GitHub.
-2. Abre **Settings → Pages**.
-3. Selecciona la rama y la carpeta raíz.
-4. La aplicación quedará disponible en `https://wolver-fik.github.io/ClearWallet/`.
-
-Todas las rutas son relativas (`./`), así que la aplicación funciona desde cualquier subcarpeta.
 
 ### Idiomas y divisas
 
