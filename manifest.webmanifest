@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "ClearWallet",
+  "short_name": "ClearWallet",
+  "description": "ClearWallet — a global, private and offline-ready personal finance PWA: monthly available money, small expenses, budgets, spending pace, savings goals and six-month history.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#090D16",
+  "theme_color": "#090D16",
+  "categories": ["finance", "productivity", "utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

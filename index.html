@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ClearWallet</title>
+  <meta name="description" content="ClearWallet — a global, private and offline-ready personal finance PWA with a modern dashboard, interactive charts, recurring payments, budgets, savings goals and six-month history.">
+  <meta name="theme-color" content="#070a10">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ClearWallet">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 8.5A2.5 2.5 0 016.5 6H18a2 2 0 012 2v9a2 2 0 01-2 2H6.5A2.5 2.5 0 014 16.5v-8z"/>
+            <path d="M4 9.5h15"/>
+            <path d="M15.5 14l1.5-1.5 1.5 1.5"/>
+          </svg>
+        </span>
+        <span class="brandtext">
+          <b>ClearWallet</b>
+          <small data-i18n="app.tagline">Personal finance</small>
+        </span>
+      </div>
+
+      <nav class="monthnav" aria-label="Month" data-i18n-aria="common.month">
+        <button type="button" class="icon" data-act="prev" aria-label="Previous month" data-i18n-aria="header.prevMonth">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button type="button" class="ml" id="mlabel" data-act="today" title="Back to current month" data-i18n-title="header.currentMonth"></button>
+        <button type="button" class="icon" data-act="next" aria-label="Next month" data-i18n-aria="header.nextMonth">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </nav>
+
+      <div class="topact">
+        <button type="button" class="primary addhdr" id="addhdr" data-act="open-add" data-i18n-aria="add.title"><span aria-hidden="true">+</span> <span data-i18n="add.title">Add transaction</span></button>
+        <div class="langwrap">
+          <label class="sr" for="langsel" data-i18n="common.language">Language</label>
+          <select id="langsel" class="langsel" aria-label="Language" data-i18n-aria="common.language">
+            <option value="en">EN</option>
+            <option value="es">ES</option>
+            <option value="pt">PT</option>
+            <option value="fr">FR</option>
+            <option value="it">IT</option>
+            <option value="de">DE</option>
+            <option value="ru">RU</option>
+            <option value="ja">JA</option>
+          </select>
+        </div>
+        <button type="button" class="icon gear" id="gearbtn" data-act="open-settings" aria-label="Settings" data-i18n-aria="header.settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3h0a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5h0a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9v0a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="viewtabs" id="viewtabs" role="tablist" aria-label="Views" data-i18n-aria="views.group">
+      <button type="button" class="on" data-act="view" data-view="overview" role="tab" aria-selected="true" data-i18n="views.overview">Overview</button>
+      <button type="button" data-act="view" data-view="movements" role="tab" aria-selected="false" data-i18n="views.movements">Movements</button>
+      <button type="button" data-act="view" data-view="fixed" role="tab" aria-selected="false" data-i18n="views.fixed">Fixed payments</button>
+      <button type="button" data-act="view" data-view="goals" role="tab" aria-selected="false" data-i18n="views.goals">Goals</button>
+    </nav>
+
+    <div id="demo"></div>
+
+    <main class="dashboard" id="dashboard" data-view="overview">
+      <section class="kpis" id="kpis" aria-label="Key figures" data-i18n-aria="kpi.group"></section>
+
+      <section class="card v-overview" id="pace" aria-label="Month evolution" data-i18n-aria="ui.evolution"></section>
+
+      <section class="card v-overview v-movements" id="list" aria-label="Transactions" data-i18n-aria="ui.history">
+        <div class="ct"><span data-i18n="ui.history">Movement history</span><span class="sub" id="listcount"></span></div>
+        <div class="listtools">
+          <button type="button" class="primary mini add-inline" data-act="open-add"><span aria-hidden="true">+</span> <span data-i18n="add.title">Add transaction</span></button>
+          <div class="searchwrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <label class="sr" for="txsearch" data-i18n="list.searchAria">Search transactions</label>
+            <input id="txsearch" class="field search" type="search" autocomplete="off" placeholder="Search by note or category…" data-i18n-ph="list.searchPlaceholder">
+            <button type="button" class="searchclear" id="searchclear" data-act="clear-search" aria-label="Clear search" data-i18n-aria="list.clearSearch" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+          <div class="filters" id="listfilters" role="group" aria-label="Filter" data-i18n-aria="list.filtersAria"></div>
+        </div>
+        <div class="th txhead" aria-hidden="true">
+          <span></span><span data-i18n="ui.colName">Name</span><span class="c-cat" data-i18n="ui.colCategory">Category</span><span class="c-date" data-i18n="ui.colDate">Date</span><span class="c-amt" data-i18n="ui.colAmount">Amount</span><span></span>
+        </div>
+        <div id="listbody"></div>
+      </section>
+
+      <section class="card v-overview v-fixed" id="upcoming" aria-label="Upcoming payments" data-i18n-aria="fixed.upcomingTitle"></section>
+
+      <section class="card v-overview" id="donut" aria-label="Spending by category" data-i18n-aria="donut.title"></section>
+
+      <section class="card v-overview v-goals" id="goal" aria-label="Savings goal" data-i18n-aria="ui.goals"></section>
+
+      <section class="card v-fixed" id="fixed" aria-label="Recurring payments" data-i18n-aria="fixed.title"></section>
+
+      <section class="card v-goals" id="history" aria-label="Last 6 months" data-i18n-aria="history.title"></section>
+    </main>
+  </div>
+
+  <div class="sheet" id="addsheet" hidden>
+    <div class="sheet-bg" data-act="close-add"></div>
+    <aside class="panel addpanel" role="dialog" aria-modal="true" aria-labelledby="add-title">
+      <div class="phead">
+        <h2 id="add-title" data-i18n="add.title">Add transaction</h2>
+        <button type="button" class="icon" data-act="close-add" id="closeaddbtn" aria-label="Close" data-i18n-aria="common.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="previewrow">
+        <div id="iconpreview" class="iconpreview"></div>
+        <div class="previewinfo">
+          <span class="lab" data-i18n="ui.preview">Detected icon</span>
+          <span class="previewlabel" id="previewlabel"></span>
+        </div>
+      </div>
+      <div class="seg" role="group" aria-label="Transaction type" data-i18n-aria="type.group">
+        <button type="button" class="on" id="tg" data-type="g" aria-pressed="true" data-i18n="type.expense">Expense</button>
+        <button type="button" id="ti" data-type="i" aria-pressed="false" data-i18n="type.income">Income</button>
+      </div>
+
+      <div class="amt" id="amtbox">
+        <span class="code" id="curtag">USD</span>
+        <label class="sr" for="amt" data-i18n="add.amountLabel">Amount</label>
+        <input id="amt" inputmode="decimal" autocomplete="off" placeholder="0" enterkeyhint="done">
+      </div>
+
+      <div class="chips" id="catchips" role="group" aria-label="Category" data-i18n-aria="add.categoryLabel"></div>
+
+      <div class="row2">
+        <div>
+          <label class="sr" for="note" data-i18n="add.noteLabel">Note</label>
+          <input class="field" id="note" maxlength="60" autocomplete="off" placeholder="Note (optional): groceries, fuel, cinema…" data-i18n-ph="add.notePlaceholder">
+        </div>
+        <div>
+          <label class="sr" for="dt" data-i18n="add.dateLabel">Date</label>
+          <input class="field" id="dt" type="date">
+        </div>
+      </div>
+
+      <div class="row3">
+        <button type="button" class="chip" id="hor" aria-pressed="false" title="Small, frequent purchases" data-i18n="add.micro" data-i18n-title="add.microTitle">Small expenses</button>
+        <button type="button" class="primary" id="addbtn" data-i18n="add.expenseBtn">Add expense</button>
+      </div>
+      <p class="hint" id="horhint" data-i18n="add.microHint">Micro: small, repeated purchases such as coffee, snacks or delivery. They are tracked separately so you can see how much they add up to.</p>
+    </aside>
+  </div>
+
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-bg" data-act="close-settings"></div>
+    <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="st-title">
+      <div class="phead">
+        <h2 id="st-title" data-i18n="settings.title">Settings</h2>
+        <button type="button" class="icon" data-act="close-settings" id="closebtn" aria-label="Close settings" data-i18n-aria="common.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="sbody"></div>
+    </aside>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="importfile" accept="application/json,.json" hidden>
+
+  <script src="./js/i18n/en.js"></script>
+  <script src="./js/i18n/es.js"></script>
+  <script src="./js/i18n/pt.js"></script>
+  <script src="./js/i18n/fr.js"></script>
+  <script src="./js/i18n/it.js"></script>
+  <script src="./js/i18n/de.js"></script>
+  <script src="./js/i18n/ru.js"></script>
+  <script src="./js/i18n/ja.js"></script>
+  <script src="./js/storage.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
