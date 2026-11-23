@@ -46,16 +46,25 @@ button{cursor:pointer}
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
   border-bottom:1px solid var(--line);
 }
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
-.logo{
-  width:36px;height:36px;border-radius:11px;flex:none;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07101a;
-  box-shadow:0 8px 24px rgba(110,231,249,.18),inset 0 1px 0 rgba(255,255,255,.35);
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
+.brand-mark{
+  width:46px;height:46px;border-radius:14px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(145deg,rgba(6,182,212,.18),rgba(59,130,246,.07));
+  border:1px solid rgba(6,182,212,.45);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 24px rgba(6,182,212,.18);
 }
-.logo svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.brand-mark svg{display:block;width:36px;height:36px}
 .brandtext{display:flex;flex-direction:column;line-height:1.05;min-width:0}
-.brandtext b{font:600 17px var(--fd);letter-spacing:-.015em}
+.brandtext b{font:700 clamp(16px,4.6vw,18px)/1.1 var(--fd);letter-spacing:-.035em;white-space:nowrap}
+.wordmark strong{color:#06B6D4;font-weight:700}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .wordmark strong{background:linear-gradient(95deg,#06B6D4,#3B82F6);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+}
 .brandtext small{font-size:11px;color:var(--dim);white-space:nowrap}
+@media (max-width:380px){
+  .brand-mark{width:40px;height:40px;border-radius:12px}
+  .brand-mark svg{width:32px;height:32px}
+}
 .monthnav{display:flex;align-items:center;gap:2px;background:var(--s1);border:1px solid var(--line);border-radius:999px;padding:3px;margin-left:auto}
 .monthnav .ml{min-width:158px;text-align:center;background:none;border:0;padding:6px 10px;font-weight:500;border-radius:999px;font-size:13px}
 .monthnav .ml:hover{background:var(--s2)}

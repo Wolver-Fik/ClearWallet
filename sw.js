@@ -1,7 +1,7 @@
 /* ClearWallet service worker — Network-First for HTML, cache-first for assets */
 'use strict';
 
-const CACHE = 'clearwallet-v1.2.2';
+const CACHE = 'clearwallet-v1.2.3';
 const PRECACHE = [
   './',
   './index.html',
