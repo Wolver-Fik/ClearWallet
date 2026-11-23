@@ -1,14 +1,14 @@
 # ClearWallet
 
-**A global, private and offline-ready personal finance PWA.**
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-ClearWallet-6366F1)](https://wolver-fik.github.io/ClearWallet/)
 
-[Live Demo](https://wolver-fik.github.io/ClearWallet/) · [PolyForm Noncommercial License 1.0.0](./LICENSE) · **v1.2.1**
-
-ClearWallet is a single-screen personal finance app with a modern dark bento dashboard. It runs entirely in the browser, stores data on the device, and works offline after the first visit.
+[English](#english) · [Español](#español)
 
 ---
 
 ## English
+
+ClearWallet is a single-screen personal finance app with a modern dark bento dashboard. It runs entirely in the browser, stores data on the device, and works offline after the first visit.
 
 ### Features
 
@@ -20,7 +20,7 @@ ClearWallet is a single-screen personal finance app with a modern dark bento das
 - **Movement history** — search by note, category or amount; filters for all / expenses / income / small expenses; grouped by day with quick inline edit, delete confirmation and a "show more" pager.
 - **Interactive demo mode** — enriched sample data (Spotify, Netflix, Amazon, Supermercado, Alquiler, Gastos Comunes, …) loaded by default when nothing is stored; "Load sample data (Demo)" in empty states and Settings, plus a "Start from scratch" button to begin from $0 with your own data.
 - **Small expenses** — track small, repeated purchases separately to see their real weight.
-- **Budget by category** — per-category liPolyForm Noncommercial License 1.0.0s with progress bars and status.
+- **Budget by category** — per-category limits with progress bars and status.
 - **Savings goal** — name, target, saved amount and an estimated time to reach it.
 - **Last 6 months** — compact income/expense and savings comparison.
 - **8 languages** — English, Spanish, Portuguese, French, Italian, German, Russian and Japanese.
@@ -79,6 +79,8 @@ PolyForm Noncommercial License 1.0.0 © 2026 Wolver-Fik. See [LICENSE](./LICENSE
 
 ---
 
+<a id="español"></a>
+
 ## Español
 
 **Una PWA de finanzas personales global, privada y lista para funcionar sin conexión.**
@@ -97,7 +99,7 @@ ClearWallet es una aplicación de finanzas personales de una sola pantalla, con 
 - **Historial de movimientos** — búsqueda por nota, categoría o importe; filtros de todos / gastos / ingresos / gastos hormiga; agrupado por día con edición rápida en línea, confirmación al eliminar y paginador «mostrar más».
 - **Modo Demostración interactivo** — datos de ejemplo enriquecidos (Spotify, Netflix, Amazon, Supermercado, Alquiler, Gastos Comunes, …) que se cargan por defecto cuando no hay nada guardado; botón «Cargar datos de ejemplo (Demo)» en los estados vacíos y en Ajustes, y botón «Empezar desde cero» para arrancar desde $0 con tus propios datos.
 - **Gastos hormiga** — registra las compras pequeñas y repetidas por separado para ver cuánto pesan.
-- **Presupuesto por categoría** — líPolyForm Noncommercial License 1.0.0es por categoría con barras de progreso y estado.
+- **Presupuesto por categoría** — límites por categoría con barras de progreso y estado.
 - **Meta de ahorro** — nombre, objetivo, monto ahorrado y tiempo estimado para alcanzarla.
 - **Últimos 6 meses** — comparación compacta de ingresos, gastos y ahorro.
 - **8 idiomas** — inglés, español, portugués, francés, italiano, alemán, ruso y japonés.
