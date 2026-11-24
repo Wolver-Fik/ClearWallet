@@ -294,3 +294,78 @@ window.CWI18N.fr = {
     close: 'Fermer'
   }
 };
+
+Object.assign(window.CWI18N.fr.views, { debts: 'Dettes' });
+Object.assign(window.CWI18N.fr.kpi, { projection: 'Solde prévu' });
+Object.assign(window.CWI18N.fr, {
+  projection: {
+    title: 'Solde prévu en fin de mois',
+    current: 'Solde actuel',
+    income: 'Revenus en attente',
+    expenses: 'Factures fixes en attente',
+    left: '{n} factures fixes restantes',
+    none: 'Toutes les factures fixes payées',
+    hint: 'Solde + revenus − factures en attente'
+  },
+  compare: {
+    title: 'Mois par mois',
+    prev: 'vs. {month}',
+    thisMonth: 'Ce mois-ci',
+    prevMonth: 'Mois précédent',
+    total: 'Dépenses totales',
+    up: 'Plus fortes hausses',
+    down: 'Plus fortes baisses',
+    noData: 'Ajoutez des dépenses sur deux mois pour comparer.',
+    flat: 'Aucun changement'
+  },
+  debts: {
+    title: 'Dettes et prêts',
+    sub: 'Suivez qui doit quoi',
+    lent: 'On me doit',
+    owed: 'Je dois',
+    person: 'Personne',
+    personPh: 'Nom',
+    amount: 'Montant',
+    currency: 'Devise',
+    note: 'Note (facultatif)',
+    notePh: 'Note facultative',
+    add: 'Ajouter une entrée',
+    settle: 'Régler',
+    settled: 'Réglé',
+    settledToast: 'Réglé avec {name}',
+    addedToast: '{name} ajouté',
+    deleted: 'Entrée supprimée',
+    empty: 'Aucune dette ni prêt pour le moment.',
+    totalLent: 'À recevoir',
+    totalOwed: 'À payer',
+    net: 'Net',
+    unconverted: '{n} sans taux',
+    deleteAria: 'Supprimer {name}',
+    nameError: 'Saisissez un nom',
+    amountError: 'Saisissez un montant supérieur à zéro',
+    autoTx: 'Créer une opération lors du règlement',
+    autoTxHint: 'Un prêt réglé devient un revenu ; une dette réglée devient une dépense.',
+    txNote: 'dette réglée',
+    manage: 'Gérer les dettes'
+  },
+  fx: {
+    title: 'Taux de change manuels',
+    note: 'Enregistrés sur cet appareil. Sans internet ni API.',
+    from: 'De',
+    to: 'Vers',
+    rate: 'Taux',
+    ratePh: 'ex. 42,50',
+    save: 'Enregistrer le taux',
+    saved: 'Taux enregistré',
+    invalid: 'Saisissez un taux supérieur à zéro',
+    same: 'Choisissez deux devises différentes',
+    list: 'Taux enregistrés',
+    none: 'Aucun taux pour le moment.',
+    remove: 'Supprimer {pair}',
+    convertTitle: 'Convertisseur hors ligne',
+    amount: 'Montant',
+    convert: 'Convertir',
+    result: '{amount} = {result}',
+    missing: 'Définissez d’abord un taux pour cette paire.'
+  }
+});

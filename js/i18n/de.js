@@ -294,3 +294,78 @@ window.CWI18N.de = {
     close: 'Schließen'
   }
 };
+
+Object.assign(window.CWI18N.de.views, { debts: 'Schulden' });
+Object.assign(window.CWI18N.de.kpi, { projection: 'Prognosesaldo' });
+Object.assign(window.CWI18N.de, {
+  projection: {
+    title: 'Prognosesaldo zum Monatsende',
+    current: 'Aktueller Saldo',
+    income: 'Ausstehende Einnahmen',
+    expenses: 'Ausstehende Fixkosten',
+    left: 'Noch {n} Fixkosten offen',
+    none: 'Alle Fixkosten bezahlt',
+    hint: 'Saldo + Einnahmen − offene Kosten'
+  },
+  compare: {
+    title: 'Monat für Monat',
+    prev: 'vs. {month}',
+    thisMonth: 'Dieser Monat',
+    prevMonth: 'Vormonat',
+    total: 'Gesamtausgaben',
+    up: 'Größte Anstiege',
+    down: 'Größte Rückgänge',
+    noData: 'Füge in zwei Monaten Ausgaben hinzu, um zu vergleichen.',
+    flat: 'Keine Änderung'
+  },
+  debts: {
+    title: 'Schulden und Kredite',
+    sub: 'Behalte im Blick, wer wem schuldet',
+    lent: 'Sie schulden mir',
+    owed: 'Ich schulde',
+    person: 'Person',
+    personPh: 'Name',
+    amount: 'Betrag',
+    currency: 'Währung',
+    note: 'Notiz (optional)',
+    notePh: 'Optionale Notiz',
+    add: 'Eintrag hinzufügen',
+    settle: 'Begleichen',
+    settled: 'Beglichen',
+    settledToast: 'Beglichen mit {name}',
+    addedToast: '{name} hinzugefügt',
+    deleted: 'Eintrag gelöscht',
+    empty: 'Noch keine Schulden oder Kredite.',
+    totalLent: 'Mir geschuldet',
+    totalOwed: 'Ich schulde',
+    net: 'Netto',
+    unconverted: '{n} ohne Kurs',
+    deleteAria: '{name} löschen',
+    nameError: 'Bitte einen Namen eingeben',
+    amountError: 'Bitte einen Betrag größer als null eingeben',
+    autoTx: 'Buchung beim Begleichen erstellen',
+    autoTxHint: 'Ein beglichener Kredit wird zur Einnahme, eine beglichene Schuld zur Ausgabe.',
+    txNote: 'beglichene Schuld',
+    manage: 'Schulden verwalten'
+  },
+  fx: {
+    title: 'Manuelle Wechselkurse',
+    note: 'Auf diesem Gerät gespeichert. Kein Internet, keine APIs.',
+    from: 'Von',
+    to: 'Nach',
+    rate: 'Kurs',
+    ratePh: 'z. B. 42,50',
+    save: 'Kurs speichern',
+    saved: 'Kurs gespeichert',
+    invalid: 'Bitte einen Kurs größer als null eingeben',
+    same: 'Wähle zwei verschiedene Währungen',
+    list: 'Gespeicherte Kurse',
+    none: 'Noch keine Kurse.',
+    remove: '{pair} entfernen',
+    convertTitle: 'Offline-Rechner',
+    amount: 'Betrag',
+    convert: 'Umrechnen',
+    result: '{amount} = {result}',
+    missing: 'Lege zuerst einen Kurs für dieses Paar fest.'
+  }
+});

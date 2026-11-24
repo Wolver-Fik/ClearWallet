@@ -293,3 +293,78 @@ window.CWI18N.ja = {
     close: '閉じる'
   }
 };
+
+Object.assign(window.CWI18N.ja.views, { debts: '貸借' });
+Object.assign(window.CWI18N.ja.kpi, { projection: '予測残高' });
+Object.assign(window.CWI18N.ja, {
+  projection: {
+    title: '月末の予測残高',
+    current: '現在の残高',
+    income: '未入金の収入',
+    expenses: '未支払いの固定費',
+    left: '固定費が{n}件残っています',
+    none: '固定費はすべて支払済み',
+    hint: '残高 + 収入 − 未払い固定費'
+  },
+  compare: {
+    title: '月ごとの比較',
+    prev: '{month}と比較',
+    thisMonth: '今月',
+    prevMonth: '先月',
+    total: '支出合計',
+    up: '増加が大きい項目',
+    down: '減少が大きい項目',
+    noData: '比較するには2か月分の支出を追加してください。',
+    flat: '変化なし'
+  },
+  debts: {
+    title: '借金と貸付',
+    sub: '誰が誰に借りているか管理',
+    lent: '他人から受け取る',
+    owed: '他人に返す',
+    person: '相手',
+    personPh: '名前',
+    amount: '金額',
+    currency: '通貨',
+    note: 'メモ（任意）',
+    notePh: '任意のメモ',
+    add: '項目を追加',
+    settle: '精算',
+    settled: '精算済み',
+    settledToast: '{name}と精算しました',
+    addedToast: '{name}を追加しました',
+    deleted: '項目を削除しました',
+    empty: '借金や貸付はまだありません。',
+    totalLent: '受け取る金額',
+    totalOwed: '返す金額',
+    net: '差引',
+    unconverted: 'レート未設定が{n}件',
+    deleteAria: '{name}を削除',
+    nameError: '名前を入力してください',
+    amountError: '0より大きい金額を入力してください',
+    autoTx: '精算時に取引を作成',
+    autoTxHint: '貸付の精算は収入、借金の精算は支出になります。',
+    txNote: '借金の精算',
+    manage: '借金を管理'
+  },
+  fx: {
+    title: '手動為替レート',
+    note: 'この端末に保存されます。インターネットやAPIは不要です。',
+    from: '通貨から',
+    to: '通貨へ',
+    rate: 'レート',
+    ratePh: '例: 42.50',
+    save: 'レートを保存',
+    saved: 'レートを保存しました',
+    invalid: '0より大きいレートを入力してください',
+    same: '異なる2つの通貨を選んでください',
+    list: '保存済みレート',
+    none: 'レートはまだありません。',
+    remove: '{pair}を削除',
+    convertTitle: 'オフライン換算',
+    amount: '金額',
+    convert: '換算',
+    result: '{amount} = {result}',
+    missing: 'まずこの通貨ペアのレートを設定してください。'
+  }
+});

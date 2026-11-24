@@ -183,7 +183,7 @@
   function exportBackup(state) {
     var payload = {
       app: 'ClearWallet',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       cfg: state.cfg,
       months: state.months || {}

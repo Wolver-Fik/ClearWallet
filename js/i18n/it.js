@@ -294,3 +294,78 @@ window.CWI18N.it = {
     close: 'Chiudi'
   }
 };
+
+Object.assign(window.CWI18N.it.views, { debts: 'Debiti' });
+Object.assign(window.CWI18N.it.kpi, { projection: 'Saldo previsto' });
+Object.assign(window.CWI18N.it, {
+  projection: {
+    title: 'Saldo previsto a fine mese',
+    current: 'Saldo attuale',
+    income: 'Entrate in attesa',
+    expenses: 'Bollette fisse in attesa',
+    left: '{n} bollette fisse rimaste',
+    none: 'Tutte le bollette fisse pagate',
+    hint: 'Saldo + entrate − bollette in attesa'
+  },
+  compare: {
+    title: 'Mese su mese',
+    prev: 'vs. {month}',
+    thisMonth: 'Questo mese',
+    prevMonth: 'Mese scorso',
+    total: 'Spesa totale',
+    up: 'Maggiori aumenti',
+    down: 'Maggiori cali',
+    noData: 'Aggiungi spese in due mesi per confrontarle.',
+    flat: 'Nessuna variazione'
+  },
+  debts: {
+    title: 'Debiti e prestiti',
+    sub: 'Tieni traccia di chi deve cosa',
+    lent: 'Mi devono',
+    owed: 'Devo',
+    person: 'Persona',
+    personPh: 'Nome',
+    amount: 'Importo',
+    currency: 'Valuta',
+    note: 'Nota (facoltativa)',
+    notePh: 'Nota facoltativa',
+    add: 'Aggiungi voce',
+    settle: 'Salda',
+    settled: 'Saldato',
+    settledToast: 'Saldato con {name}',
+    addedToast: 'Aggiunto {name}',
+    deleted: 'Voce eliminata',
+    empty: 'Ancora nessun debito o prestito.',
+    totalLent: 'Da ricevere',
+    totalOwed: 'Da pagare',
+    net: 'Neto',
+    unconverted: '{n} senza tasso',
+    deleteAria: 'Elimina {name}',
+    nameError: 'Inserisci un nome',
+    amountError: 'Inserisci un importo maggiore di zero',
+    autoTx: 'Crea movimento al saldo',
+    autoTxHint: 'Un prestito saldato diventa un’entrata; un debito saldato diventa una spesa.',
+    txNote: 'debito saldato',
+    manage: 'Gestisci i debiti'
+  },
+  fx: {
+    title: 'Tassi di cambio manuali',
+    note: 'Salvati su questo dispositivo. Nessuna internet o API.',
+    from: 'Da',
+    to: 'A',
+    rate: 'Tasso',
+    ratePh: 'es. 42,50',
+    save: 'Salva tasso',
+    saved: 'Tasso salvato',
+    invalid: 'Inserisci un tasso maggiore di zero',
+    same: 'Scegli due valute diverse',
+    list: 'Tassi salvati',
+    none: 'Ancora nessun tasso.',
+    remove: 'Rimuovi {pair}',
+    convertTitle: 'Convertitore offline',
+    amount: 'Importo',
+    convert: 'Converti',
+    result: '{amount} = {result}',
+    missing: 'Imposta prima un tasso per questa coppia.'
+  }
+});

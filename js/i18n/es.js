@@ -294,3 +294,78 @@ window.CWI18N.es = {
     close: 'Cerrar'
   }
 };
+
+Object.assign(window.CWI18N.es.views, { debts: 'Deudas' });
+Object.assign(window.CWI18N.es.kpi, { projection: 'Saldo proyectado' });
+Object.assign(window.CWI18N.es, {
+  projection: {
+    title: 'Saldo proyectado a fin de mes',
+    current: 'Saldo actual',
+    income: 'Ingresos pendientes',
+    expenses: 'Facturas fijas pendientes',
+    left: '{n} facturas fijas pendientes',
+    none: 'Todas las facturas fijas pagadas',
+    hint: 'Saldo + ingresos − facturas pendientes'
+  },
+  compare: {
+    title: 'Mes a mes',
+    prev: 'vs. {month}',
+    thisMonth: 'Este mes',
+    prevMonth: 'Mes anterior',
+    total: 'Gasto total',
+    up: 'Mayores aumentos',
+    down: 'Mayores bajadas',
+    noData: 'Añade gastos en dos meses para comparar.',
+    flat: 'Sin cambios'
+  },
+  debts: {
+    title: 'Deudas y préstamos',
+    sub: 'Controla quién debe qué',
+    lent: 'Me deben',
+    owed: 'Debo',
+    person: 'Persona',
+    personPh: 'Nombre',
+    amount: 'Monto',
+    currency: 'Moneda',
+    note: 'Nota (opcional)',
+    notePh: 'Nota opcional',
+    add: 'Agregar entrada',
+    settle: 'Liquidar',
+    settled: 'Liquidado',
+    settledToast: 'Liquidado con {name}',
+    addedToast: 'Agregado {name}',
+    deleted: 'Entrada borrada',
+    empty: 'Todavía no hay deudas ni préstamos.',
+    totalLent: 'Me deben',
+    totalOwed: 'Debo',
+    net: 'Neto',
+    unconverted: '{n} sin tasa',
+    deleteAria: 'Borrar {name}',
+    nameError: 'Escribe un nombre',
+    amountError: 'Escribe un monto mayor que cero',
+    autoTx: 'Crear movimiento al liquidar',
+    autoTxHint: 'Un préstamo liquidado se convierte en ingreso; una deuda liquidada, en gasto.',
+    txNote: 'deuda liquidada',
+    manage: 'Gestionar deudas'
+  },
+  fx: {
+    title: 'Tipos de cambio manuales',
+    note: 'Guardado en este dispositivo. Sin internet ni APIs.',
+    from: 'De',
+    to: 'A',
+    rate: 'Tasa',
+    ratePh: 'p. ej. 42,50',
+    save: 'Guardar tasa',
+    saved: 'Tasa guardada',
+    invalid: 'Escribe una tasa mayor que cero',
+    same: 'Elige dos monedas diferentes',
+    list: 'Tasas guardadas',
+    none: 'Todavía no hay tasas.',
+    remove: 'Quitar {pair}',
+    convertTitle: 'Conversor sin conexión',
+    amount: 'Monto',
+    convert: 'Convertir',
+    result: '{amount} = {result}',
+    missing: 'Primero define una tasa para este par.'
+  }
+});

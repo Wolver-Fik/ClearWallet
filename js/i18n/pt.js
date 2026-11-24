@@ -294,3 +294,78 @@ window.CWI18N.pt = {
     close: 'Fechar'
   }
 };
+
+Object.assign(window.CWI18N.pt.views, { debts: 'Dívidas' });
+Object.assign(window.CWI18N.pt.kpi, { projection: 'Saldo projetado' });
+Object.assign(window.CWI18N.pt, {
+  projection: {
+    title: 'Saldo projetado até o fim do mês',
+    current: 'Saldo atual',
+    income: 'Receitas pendentes',
+    expenses: 'Contas fixas pendentes',
+    left: '{n} contas fixas restantes',
+    none: 'Todas as contas fixas pagas',
+    hint: 'Saldo + receitas − contas pendentes'
+  },
+  compare: {
+    title: 'Mês a mês',
+    prev: 'vs. {month}',
+    thisMonth: 'Este mês',
+    prevMonth: 'Mês anterior',
+    total: 'Gasto total',
+    up: 'Maiores aumentos',
+    down: 'Maiores quedas',
+    noData: 'Adicione despesas em dois meses para comparar.',
+    flat: 'Sem alteração'
+  },
+  debts: {
+    title: 'Dívidas e empréstimos',
+    sub: 'Controle quem deve o quê',
+    lent: 'Devem para mim',
+    owed: 'Devo',
+    person: 'Pessoa',
+    personPh: 'Nome',
+    amount: 'Valor',
+    currency: 'Moeda',
+    note: 'Nota (opcional)',
+    notePh: 'Nota opcional',
+    add: 'Adicionar entrada',
+    settle: 'Quitar',
+    settled: 'Quitado',
+    settledToast: 'Quitado com {name}',
+    addedToast: 'Adicionado {name}',
+    deleted: 'Entrada excluída',
+    empty: 'Ainda não há dívidas nem empréstimos.',
+    totalLent: 'A receber',
+    totalOwed: 'A pagar',
+    net: 'Saldo líquido',
+    unconverted: '{n} sem taxa',
+    deleteAria: 'Excluir {name}',
+    nameError: 'Digite um nome',
+    amountError: 'Digite um valor maior que zero',
+    autoTx: 'Criar movimento ao quitar',
+    autoTxHint: 'Um empréstimo quitado vira receita; uma dívida quitada vira despesa.',
+    txNote: 'dívida quitada',
+    manage: 'Gerenciar dívidas'
+  },
+  fx: {
+    title: 'Taxas de câmbio manuais',
+    note: 'Salvo neste dispositivo. Sem internet ou APIs.',
+    from: 'De',
+    to: 'Para',
+    rate: 'Taxa',
+    ratePh: 'ex.: 42,50',
+    save: 'Salvar taxa',
+    saved: 'Taxa salva',
+    invalid: 'Digite uma taxa maior que zero',
+    same: 'Escolha duas moedas diferentes',
+    list: 'Taxas salvas',
+    none: 'Ainda não há taxas.',
+    remove: 'Remover {pair}',
+    convertTitle: 'Conversor offline',
+    amount: 'Valor',
+    convert: 'Converter',
+    result: '{amount} = {result}',
+    missing: 'Defina uma taxa para este par primeiro.'
+  }
+});

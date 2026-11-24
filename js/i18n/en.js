@@ -294,3 +294,78 @@ window.CWI18N.en = {
     close: 'Close'
   }
 };
+
+Object.assign(window.CWI18N.en.views, { debts: 'Debts' });
+Object.assign(window.CWI18N.en.kpi, { projection: 'Projected balance' });
+Object.assign(window.CWI18N.en, {
+  projection: {
+    title: 'Projected month-end balance',
+    current: 'Current balance',
+    income: 'Pending income',
+    expenses: 'Pending fixed bills',
+    left: '{n} fixed bills left',
+    none: 'All fixed bills paid',
+    hint: 'Balance + income − pending bills'
+  },
+  compare: {
+    title: 'Month over month',
+    prev: 'vs {month}',
+    thisMonth: 'This month',
+    prevMonth: 'Last month',
+    total: 'Total spending',
+    up: 'Biggest increases',
+    down: 'Biggest drops',
+    noData: 'Add expenses in two months to compare.',
+    flat: 'No change'
+  },
+  debts: {
+    title: 'Debts & loans',
+    sub: 'Track who owes what',
+    lent: 'They owe me',
+    owed: 'I owe',
+    person: 'Person',
+    personPh: 'Name',
+    amount: 'Amount',
+    currency: 'Currency',
+    note: 'Note (optional)',
+    notePh: 'Optional note',
+    add: 'Add entry',
+    settle: 'Settle',
+    settled: 'Settled',
+    settledToast: 'Settled with {name}',
+    addedToast: 'Added {name}',
+    deleted: 'Entry deleted',
+    empty: 'No debts or loans yet.',
+    totalLent: 'Owed to me',
+    totalOwed: 'I owe',
+    net: 'Net',
+    unconverted: '{n} without a rate',
+    deleteAria: 'Delete {name}',
+    nameError: 'Enter a name',
+    amountError: 'Enter an amount greater than zero',
+    autoTx: 'Create movement when settling',
+    autoTxHint: 'A settled loan becomes income; a settled debt becomes an expense.',
+    txNote: 'settled debt',
+    manage: 'Manage debts'
+  },
+  fx: {
+    title: 'Manual exchange rates',
+    note: 'Stored on this device. No internet or APIs.',
+    from: 'From',
+    to: 'To',
+    rate: 'Rate',
+    ratePh: 'e.g. 42.50',
+    save: 'Save rate',
+    saved: 'Rate saved',
+    invalid: 'Enter a rate greater than zero',
+    same: 'Choose two different currencies',
+    list: 'Saved rates',
+    none: 'No rates yet.',
+    remove: 'Remove {pair}',
+    convertTitle: 'Offline converter',
+    amount: 'Amount',
+    convert: 'Convert',
+    result: '{amount} = {result}',
+    missing: 'Set a rate for this pair first.'
+  }
+});

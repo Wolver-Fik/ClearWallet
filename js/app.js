@@ -239,7 +239,7 @@
   var S = {
     cfg: null, months: {}, viewYM: TODAY_YM, view: 'overview', demo: true, type: 'g', cat: null,
     hor: false, filter: 'all', query: '', limit: 60, confirmDel: null, confirmReset: false,
-    openSettings: false, openAdd: false, editTx: null, recDraft: null
+    openSettings: false, openAdd: false, editTx: null, recDraft: null, debtDraft: null, fxDraft: null
   };
   var demoCache = null;
 
@@ -255,7 +255,10 @@
       saveTarget: 0,
       goal: { name: '', target: 0, saved: 0 },
       cats: defaultCats(),
-      recurring: []
+      recurring: [],
+      debts: [],
+      rates: {},
+      debtAutoTx: true
     };
   }
   function posNum(n) {
@@ -275,7 +278,41 @@
         name: name,
         amount: r2(amount),
         day: clamp(day, 1, 31),
-        cat: String(r.cat != null ? r.cat : (r.c || ''))
+        cat: String(r.cat != null ? r.cat : (r.c || '')),
+        type: r.type === 'i' ? 'i' : 'g'
+      };
+    }).filter(Boolean);
+  }
+  function normRates(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object') return out;
+    Object.keys(raw).forEach(function (k) {
+      if (!/^[A-Z]{3}>[A-Z]{3}$/.test(k)) return;
+      var v = Number(raw[k]);
+      if (isFinite(v) && v > 0) out[k] = v;
+    });
+    return out;
+  }
+  function normDebts(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function (d) {
+      if (!d || typeof d !== 'object') return null;
+      var name = String(d.name != null ? d.name : (d.n || '')).trim().slice(0, 40);
+      var amount = Number(d.amount != null ? d.amount : d.a);
+      var cur = String(d.cur || d.currency || '').toUpperCase().slice(0, 3);
+      if (!name || !isFinite(amount) || !(amount > 0) || !/^[A-Z]{3}$/.test(cur)) return null;
+      var date = /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : TODAY_ISO;
+      var settledAt = /^\d{4}-\d{2}-\d{2}$/.test(d.settledAt) ? d.settledAt : '';
+      return {
+        id: String(d.id || ('d' + uid())),
+        name: name,
+        amount: r2(amount),
+        cur: cur,
+        note: String(d.note || '').slice(0, 60),
+        dir: d.dir === 'owed' ? 'owed' : 'lent',
+        settled: !!d.settled,
+        date: date,
+        settledAt: settledAt
       };
     }).filter(Boolean);
   }
@@ -288,7 +325,10 @@
     }) : d.cats;
     var rec = normRecurring(c.recurring);
     rec.forEach(function (r) {
-      if (!cats.some(function (x) { return x.id === r.cat; })) r.cat = cats[0] ? cats[0].id : 'otr';
+      var valid = r.type === 'i'
+        ? INCOME_IDS.indexOf(r.cat) >= 0
+        : cats.some(function (x) { return x.id === r.cat; });
+      if (!valid) r.cat = r.type === 'i' ? INCOME_IDS[0] : ((cats[0] && cats[0].id) || 'otr');
     });
     return {
       cur: typeof c.cur === 'string' && c.cur ? c.cur : d.cur,
@@ -299,7 +339,10 @@
         saved: posNum(g.saved)
       },
       cats: cats,
-      recurring: rec
+      recurring: rec,
+      debts: normDebts(c.debts),
+      rates: normRates(c.rates),
+      debtAutoTx: c.debtAutoTx !== false
     };
   }
   function normTx(tx) {
@@ -334,13 +377,22 @@
         return { id: id, name: t('cat.' + id), budget: nice(DEMO_BUD[id] * k) };
       }),
       recurring: [
+        { id: 'dr-sueldo', name: t('inc.sueldo'), amount: nice(2400 * k), day: 1, cat: 'sueldo', type: 'i' },
+        { id: 'dr-free', name: t('inc.free'), amount: nice(180 * k), day: 24, cat: 'free', type: 'i' },
+        { id: 'dr-extra', name: t('inc.otri'), amount: nice(90 * k), day: 28, cat: 'otri', type: 'i' },
         { id: 'dr-viv', name: t('cat.viv'), amount: nice(650 * k), day: 5, cat: 'viv' },
         { id: 'dr-srv', name: 'Gastos Comunes', amount: nice(38 * k), day: 8, cat: 'srv' },
         { id: 'dr-netflix', name: 'Netflix', amount: nice(14 * k), day: 12, cat: 'sus' },
         { id: 'dr-spotify', name: 'Spotify', amount: nice(11 * k), day: 18, cat: 'sus' },
         { id: 'dr-amazon', name: 'Amazon Prime', amount: nice(59 * k), day: 22, cat: 'com' },
         { id: 'dr-util', name: t('cat.srv'), amount: nice(140 * k), day: 26, cat: 'srv' }
-      ]
+      ],
+      debts: [
+        { id: 'dd-lent', name: 'Ana', amount: nice(60 * k), cur: cur, note: '', dir: 'lent', settled: false, date: TODAY_ISO, settledAt: '' },
+        { id: 'dd-owed', name: 'Luis', amount: nice(95 * k), cur: cur, note: '', dir: 'owed', settled: false, date: TODAY_ISO, settledAt: '' }
+      ],
+      rates: cur !== 'USD' ? { ['USD>' + cur]: k } : {},
+      debtAutoTx: true
     };
     return demoCache;
   }
@@ -357,7 +409,8 @@
       var known = DICT[LANG] && DICT[LANG].note && DICT[LANG].note[r[4]];
       out.push({
         id: 'd' + ym + i, t: r[1], a: nice(r[3] * k * (isInc ? 1 : f)) || 1,
-        c: r[2], n: known ? t('note.' + r[4]) : r[4], d: ym + '-' + pad(day), h: r[5], r: ''
+        c: r[2], n: known ? t('note.' + r[4]) : r[4], d: ym + '-' + pad(day), h: r[5],
+        r: (isInc && r[2] === 'sueldo') ? 'dr-sueldo' : (isInc && r[2] === 'free') ? 'dr-free' : ''
       });
     });
     return out;
@@ -405,7 +458,7 @@
   /* ---------- recurring payments ---------- */
   function isRecPaid(rec, ym) {
     if (!rec) return false;
-    return getTx(ym).some(function (tx) { return tx.t === 'g' && tx.r === rec.id; });
+    return getTx(ym).some(function (tx) { return tx.r === rec.id; });
   }
   function nextDue(rec) {
     var paid = isRecPaid(rec, TODAY_YM);
@@ -441,6 +494,7 @@
     if (due.days === 0) return t('fixed.dueToday');
     return tn('fixed.dueIn', due.days);
   }
+  function recActionLabel(rec) { return rec.type === 'i' ? t('add.incomeBtn') : t('fixed.payNow'); }
 
   /* ---------- persistence ---------- */
   function lsSave() { if (!S.demo) Storage.save({ cfg: S.cfg, months: S.months }); }
@@ -461,16 +515,17 @@
   }
 
   function recDraft() {
-    if (!S.recDraft) S.recDraft = { name: '', amount: '', day: '', cat: '' };
+    if (!S.recDraft) S.recDraft = { name: '', amount: '', day: '', cat: '', type: 'g' };
     return S.recDraft;
   }
   function captureRecForm() {
-    var n = $('#rec-name'), a = $('#rec-amt'), d = $('#rec-day'), c = $('#rec-cat');
+    var n = $('#rec-name'), a = $('#rec-amt'), d = $('#rec-day'), c = $('#rec-cat'), ty = $('#rec-type');
     if (!n || !a || !d) return;
     var dr = recDraft();
     dr.name = n.value;
     dr.amount = a.value;
     dr.day = d.value;
+    dr.type = ty && ty.value === 'i' ? 'i' : 'g';
     if (c) dr.cat = c.value;
   }
 
@@ -512,7 +567,7 @@
   }
 
   function setView(v) {
-    if (['overview', 'movements', 'fixed', 'goals'].indexOf(v) < 0) v = 'overview';
+    if (['overview', 'movements', 'fixed', 'goals', 'debts'].indexOf(v) < 0) v = 'overview';
     S.view = v;
     var dash = $('#dashboard');
     if (dash) dash.setAttribute('data-view', v);
@@ -522,6 +577,9 @@
       b.setAttribute('aria-selected', String(on));
     });
     if (v !== 'movements') S.editTx = null;
+    /* The debts card renders a compact summary in Overview and the full
+       editor in its own tab, so it must refresh when the view changes. */
+    if (S.cfg) renderDebts();
   }
 
   function setLang(lang) {
@@ -565,6 +623,9 @@
     S.months = {};
     demoCache = null;
     S.editTx = null;
+    S.recDraft = null;
+    S.debtDraft = null;
+    S.fxDraft = null;
     resetSearch();
     persistCfg();
     renderDemo();
@@ -599,6 +660,8 @@
     S.confirmDel = null;
     S.editTx = null;
     S.recDraft = null;
+    S.debtDraft = null;
+    S.fxDraft = null;
     resetSearch();
     var dt = $('#dt');
     if (dt) dt.value = defaultDate(S.viewYM);
@@ -733,23 +796,28 @@
   }
 
   function addRecurring() {
-    var nameEl = $('#rec-name'), amtEl = $('#rec-amt'), dayEl = $('#rec-day'), catEl = $('#rec-cat');
+    var nameEl = $('#rec-name'), amtEl = $('#rec-amt'), dayEl = $('#rec-day'), catEl = $('#rec-cat'), tyEl = $('#rec-type');
     if (!nameEl || !amtEl || !dayEl) return;
     var name = nameEl.value.trim();
     var amt = parseAmount(amtEl.value);
     var day = parseInt(dayEl.value, 10);
+    var type = tyEl && tyEl.value === 'i' ? 'i' : 'g';
     if (!name) { toast(t('fixed.nameError')); nameEl.focus(); return; }
     if (!(amt > 0)) { toast(t('fixed.amountError')); amtEl.focus(); return; }
     if (!(day >= 1 && day <= 31)) { toast(t('fixed.dayError')); dayEl.focus(); return; }
     var item = {
       id: uid(), name: name.slice(0, 40), amount: r2(amt),
-      day: Math.round(day), cat: catEl ? catEl.value : (getCfg().cats[0] && getCfg().cats[0].id) || 'otr'
+      day: Math.round(day),
+      cat: catEl ? catEl.value : (type === 'i' ? INCOME_IDS[0] : ((getCfg().cats[0] && getCfg().cats[0].id) || 'otr')),
+      type: type
     };
     if (S.demo) startReal();
     if (!S.cfg.recurring) S.cfg.recurring = [];
     S.cfg.recurring.push(item);
     persistCfg();
     S.recDraft = null;
+    S.debtDraft = null;
+    S.fxDraft = null;
     renderAll();
     toast(t('fixed.addedToast', { name: item.name }));
   }
@@ -767,7 +835,7 @@
     var rec = (cfg.recurring || []).find(function (r) { return r.id === id; });
     if (!rec) return;
     if (isRecPaid(rec, TODAY_YM)) { toast(t('fixed.alreadyPaid', { name: rec.name })); return; }
-    var item = { id: rec.id, name: rec.name, amount: rec.amount, day: rec.day, cat: rec.cat };
+    var item = { id: rec.id, name: rec.name, amount: rec.amount, day: rec.day, cat: rec.cat, type: rec.type || 'g' };
     if (S.demo) {
       startReal();
       if (!S.cfg.recurring) S.cfg.recurring = [];
@@ -777,8 +845,8 @@
     }
     var ym = TODAY_YM;
     var tx = {
-      id: uid(), t: 'g', a: r2(item.amount),
-      c: item.cat || (S.cfg.cats[0] && S.cfg.cats[0].id) || 'otr',
+      id: uid(), t: item.type === 'i' ? 'i' : 'g', a: r2(item.amount),
+      c: item.cat || (item.type === 'i' ? INCOME_IDS[0] : ((S.cfg.cats[0] && S.cfg.cats[0].id) || 'otr')),
       n: item.name.slice(0, 60), d: TODAY_ISO, h: 0, r: item.id
     };
     if (!S.months[ym]) S.months[ym] = [];
@@ -796,6 +864,8 @@
     $('#mlabel').textContent = monthLabel(S.viewYM);
     renderDemo();
     renderKpis();
+    renderCompare();
+    renderDebts();
     renderDonut();
     renderPace();
     renderUpcoming();
@@ -847,7 +917,8 @@
       balance: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.2"/>',
       income: '<path d="M12 19V5M6 11l6-6 6 6"/>',
       expenses: '<path d="M12 5v14M6 13l6 6 6-6"/>',
-      micro: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>'
+      micro: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
+      projection: '<path d="M3 17l5-5 4 3 8-9"/><path d="M16 6h4v4"/>'
     };
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (paths[kind] || paths.balance) + '</svg>';
   }
@@ -1036,6 +1107,21 @@
       '</svg>';
   }
 
+  /* Current balance + pending recurring income − pending fixed bills. */
+  function projection() {
+    var st = monthStats(S.viewYM);
+    var inc = 0, exp = 0, incN = 0, expN = 0;
+    (getCfg().recurring || []).forEach(function (r) {
+      if (isRecPaid(r, S.viewYM)) return;
+      if (r.type === 'i') { inc += r.amount; incN++; }
+      else { exp += r.amount; expN++; }
+    });
+    return {
+      balance: st.avail, inc: r2(inc), exp: r2(exp), incN: incN, expN: expN,
+      projected: r2(st.avail + inc - exp)
+    };
+  }
+
   function renderKpis() {
     var ms = lastMonths(6);
     var stats = ms.map(function (ym) { return monthStats(ym); });
@@ -1065,7 +1151,70 @@
         sparkline(it.series, it.color, idx) +
         '</article>';
     }).join('');
+    var p = projection();
+    html += '<article class="kpi projection">' +
+      '<div class="khead"><span class="klabel">' + esc(t('kpi.projection')) + '</span><span class="kicon">' + kpiIcon('projection') + '</span></div>' +
+      '<div class="kval' + (p.projected < 0 ? ' neg' : '') + '">' + esc(money(p.projected)) + '</div>' +
+      '<div class="projparts">' +
+        '<span class="pin">' + esc(t('projection.current')) + ' <b>' + esc(money(p.balance)) + '</b></span>' +
+        '<span class="pin">' + esc(t('projection.income')) + ' <b>+' + esc(money(p.inc)) + '</b></span>' +
+        '<span class="pout">' + esc(t('projection.expenses')) + ' <b>−' + esc(money(p.exp)) + '</b></span>' +
+      '</div>' +
+      '<div class="projcount' + (p.expN ? '' : ' allpaid') + '">' +
+        esc(p.expN ? tn('projection.left', p.expN) : t('projection.none')) +
+      '</div>' +
+      '</article>';
     $('#kpis').innerHTML = html;
+  }
+
+  /* ---------- month-over-month comparison ---------- */
+  function deltaText(n) {
+    return (n > 0 ? '+' : n < 0 ? '−' : '') + money(Math.abs(n), true);
+  }
+
+  function compareData() {
+    var ym = S.viewYM, prevYM = addMonths(ym, -1);
+    var cur = monthStats(ym), prev = monthStats(prevYM);
+    var ids = {};
+    Object.keys(cur.by).concat(Object.keys(prev.by)).forEach(function (id) { ids[id] = 1; });
+    getCfg().cats.forEach(function (c) { ids[c.id] = 1; });
+    var rows = Object.keys(ids).map(function (id) {
+      var a = cur.by[id] || 0, b = prev.by[id] || 0;
+      return { id: id, name: catNameById(id), cur: a, prev: b, delta: r2(a - b) };
+    }).filter(function (r) { return r.cur > 0 || r.prev > 0; });
+    var up = rows.filter(function (r) { return r.delta > 0; }).sort(function (a, b) { return b.delta - a.delta; }).slice(0, 3);
+    var down = rows.filter(function (r) { return r.delta < 0; }).sort(function (a, b) { return a.delta - b.delta; }).slice(0, 3);
+    return {
+      cur: cur.exp, prev: prev.exp, diff: r2(cur.exp - prev.exp),
+      pct: variation(cur.exp, prev.exp), up: up, down: down,
+      hasData: cur.n > 0 && prev.n > 0,
+      prevLabel: monthShort(prevYM)
+    };
+  }
+
+  function cmpRows(rows, cls) {
+    if (!rows.length) return '<p class="cmpnone">—</p>';
+    return rows.map(function (r) {
+      return '<div class="cmprow"><span class="cn">' + esc(r.name) + '</span>' +
+        '<span class="cd ' + cls + '">' + esc(deltaText(r.delta)) + '</span></div>';
+    }).join('');
+  }
+
+  function renderCompare() {
+    var d = compareData();
+    var head = '<div class="ct">' + esc(t('compare.title')) + '<span class="sub">' + esc(t('compare.prev', { month: d.prevLabel })) + '</span></div>';
+    if (!d.hasData) {
+      $('#compare').innerHTML = head + '<p class="empty">' + esc(t('compare.noData')) + '</p>';
+      return;
+    }
+    var dcls = d.diff > 0 ? 'bad' : d.diff < 0 ? 'good' : 'flat';
+    var change = d.pct == null ? t('compare.flat') : signedPct(d.pct);
+    $('#compare').innerHTML = head +
+      '<div class="cmphead"><div><div class="cmpbig">' + esc(money(d.cur, true)) + '</div>' +
+      '<span class="muted">' + esc(t('compare.thisMonth')) + ' · ' + esc(t('compare.prevMonth')) + ' ' + esc(money(d.prev, true)) + '</span></div>' +
+      '<span class="cmpdelta ' + dcls + '">' + esc(change) + ' <span>' + esc(deltaText(d.diff)) + '</span></span></div>' +
+      '<div class="cmpcols"><div class="cmpcol"><h4>' + esc(t('compare.up')) + '</h4>' + cmpRows(d.up, 'bad') + '</div>' +
+      '<div class="cmpcol"><h4>' + esc(t('compare.down')) + '</h4>' + cmpRows(d.down, 'good') + '</div></div>';
   }
 
   /* ---------- donut ---------- */
@@ -1277,7 +1426,7 @@
       var when = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' }).format(due.date);
       var pay = due.paid
         ? '<button type="button" class="paybtn" disabled>' + esc(t('fixed.paid')) + '</button>'
-        : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(t('fixed.payNow')) + '</button>';
+        : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(recActionLabel(r)) + '</button>';
       return '<div class="upitem">' +
         getItemIcon({ n: r.name, c: r.cat, t: 'g' }) +
         '<div class="upmain"><div class="upname">' + esc(r.name) + '</div>' +
@@ -1318,7 +1467,7 @@
         var status = dueStatusText(due);
         var pay = due.paid
           ? '<button type="button" class="paybtn" disabled>' + esc(t('fixed.paid')) + '</button>'
-          : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(t('fixed.payNow')) + '</button>';
+          : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(recActionLabel(r)) + '</button>';
         var rm = S.demo ? '' : '<button type="button" class="recrm" data-act="del-rec" data-id="' + esc(r.id) + '" aria-label="' + esc(t('fixed.deleteAria', { name: r.name })) + '">' +
           '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>';
         return '<div class="recitem">' +
@@ -1448,6 +1597,280 @@
     $('#listbody').innerHTML = html;
   }
 
+  /* ---------- manual offline FX rates ---------- */
+  function rateKey(from, to) { return String(from).toUpperCase() + '>' + String(to).toUpperCase(); }
+
+  function moneyCur(n, cur) {
+    var digits = currencyDigits(cur);
+    var frac = Math.abs(n - Math.round(n)) > 1e-9;
+    var d = frac ? digits : 0;
+    return nf(cur, d, d).format(n);
+  }
+
+  function fxRate(from, to) {
+    from = String(from || '').toUpperCase();
+    to = String(to || '').toUpperCase();
+    if (!from || !to) return null;
+    if (from === to) return 1;
+    var rates = getCfg().rates || {};
+    var direct = rates[rateKey(from, to)];
+    if (direct > 0) return direct;
+    var inverse = rates[rateKey(to, from)];
+    if (inverse > 0) return 1 / inverse;
+    /* One to three hops through any saved currency pair, entirely offline. */
+    var adj = {};
+    Object.keys(rates).forEach(function (k) {
+      var p = k.split('>'), r = rates[k];
+      if (p.length !== 2 || !(r > 0)) return;
+      (adj[p[0]] = adj[p[0]] || []).push({ v: p[1], r: r });
+      (adj[p[1]] = adj[p[1]] || []).push({ v: p[0], r: 1 / r });
+    });
+    var queue = [{ v: from, r: 1, depth: 0 }], seen = {};
+    seen[from] = 1;
+    while (queue.length) {
+      var node = queue.shift();
+      if (node.depth >= 3) continue;
+      var edges = adj[node.v] || [];
+      for (var i = 0; i < edges.length; i++) {
+        if (edges[i].v === to) return node.r * edges[i].r;
+        if (!seen[edges[i].v]) {
+          seen[edges[i].v] = 1;
+          queue.push({ v: edges[i].v, r: node.r * edges[i].r, depth: node.depth + 1 });
+        }
+      }
+    }
+    return null;
+  }
+
+  function convert(amount, from, to) {
+    var r = fxRate(from, to);
+    return r == null ? r2(amount) : r2(amount * r);
+  }
+
+  function fxDraft() {
+    if (!S.fxDraft) {
+      var cur = getCfg().cur;
+      S.fxDraft = {
+        from: cur === 'USD' ? 'EUR' : 'USD', to: cur, rate: '',
+        amount: '100', cfrom: cur === 'USD' ? 'EUR' : 'USD', cto: cur
+      };
+    }
+    return S.fxDraft;
+  }
+
+  function captureFxForm() {
+    var f = fxDraft();
+    var map = { 'fx-from': 'from', 'fx-to': 'to', 'fx-rate': 'rate', 'cv-amt': 'amount', 'cv-from': 'cfrom', 'cv-to': 'cto' };
+    Object.keys(map).forEach(function (id) {
+      var el = $('#' + id);
+      if (el) f[map[id]] = el.value;
+    });
+  }
+
+  function saveFxRate() {
+    var from = $('#fx-from').value, to = $('#fx-to').value;
+    var rate = parseAmount($('#fx-rate').value);
+    if (from === to) { toast(t('fx.same')); return; }
+    if (!(rate > 0)) { toast(t('fx.invalid')); $('#fx-rate').focus(); return; }
+    captureFxForm();
+    getCfg().rates[rateKey(from, to)] = rate;
+    S.fxDraft.rate = '';
+    persistCfg();
+    renderSettings();
+    toast(t('fx.saved'));
+  }
+
+  function removeFxRate(pair) {
+    if (!pair || !getCfg().rates) return;
+    delete getCfg().rates[pair];
+    persistCfg();
+    renderSettings();
+  }
+
+  function doConvert() {
+    var amount = parseAmount($('#cv-amt').value);
+    var from = $('#cv-from').value, to = $('#cv-to').value;
+    var out = $('#cv-out');
+    if (!out) return;
+    if (!(amount > 0)) { toast(t('debts.amountError')); $('#cv-amt').focus(); return; }
+    captureFxForm();
+    var r = fxRate(from, to);
+    if (r == null) { toast(t('fx.missing')); out.textContent = ''; return; }
+    out.textContent = t('fx.result', { amount: moneyCur(amount, from), result: moneyCur(convert(amount, from, to), to) });
+  }
+
+  /* ---------- debts & loans ---------- */
+  function debtDraft() {
+    if (!S.debtDraft) {
+      S.debtDraft = {
+        name: '', amount: '', cur: getCfg().cur, note: '', dir: 'lent',
+        auto: getCfg().debtAutoTx !== false
+      };
+    }
+    return S.debtDraft;
+  }
+
+  function captureDebtForm() {
+    var n = $('#debt-name'), a = $('#debt-amt'), c = $('#debt-cur'), note = $('#debt-note'), dir = $('#debt-dir'), auto = $('#debt-auto');
+    if (!n || !a) return;
+    var d = debtDraft();
+    d.name = n.value;
+    d.amount = a.value;
+    if (c) d.cur = c.value;
+    if (note) d.note = note.value;
+    if (dir) d.dir = dir.value === 'owed' ? 'owed' : 'lent';
+    if (auto) d.auto = auto.checked;
+  }
+
+  function debtTotals() {
+    var cfg = getCfg(), cur = cfg.cur;
+    var lent = 0, owed = 0, missing = 0;
+    (cfg.debts || []).forEach(function (d) {
+      if (d.settled) return;
+      var r = fxRate(d.cur, cur);
+      if (r == null && d.cur !== cur) missing++;
+      var v = r2(d.amount * (r == null ? 1 : r));
+      if (d.dir === 'owed') owed += v; else lent += v;
+    });
+    return { lent: r2(lent), owed: r2(owed), net: r2(lent - owed), missing: missing };
+  }
+
+  function addDebt() {
+    var d = debtDraft();
+    var name = String(d.name || '').trim();
+    var amount = parseAmount(d.amount);
+    if (!name) { toast(t('debts.nameError')); var ne = $('#debt-name'); if (ne) ne.focus(); return; }
+    if (!(amount > 0)) { toast(t('debts.amountError')); var ae = $('#debt-amt'); if (ae) ae.focus(); return; }
+    if (S.demo) loadDemo(true);
+    var item = {
+      id: uid(), name: name.slice(0, 40), amount: r2(amount), cur: d.cur || S.cfg.cur,
+      note: String(d.note || '').trim().slice(0, 60), dir: d.dir === 'owed' ? 'owed' : 'lent',
+      settled: false, date: TODAY_ISO, settledAt: ''
+    };
+    if (!S.cfg.debts) S.cfg.debts = [];
+    S.cfg.debts.push(item);
+    S.cfg.debtAutoTx = d.auto !== false;
+    S.debtDraft = null;
+    persistCfg();
+    renderAll();
+    toast(t('debts.addedToast', { name: item.name }));
+  }
+
+  function settleDebt(id) {
+    if (S.demo) loadDemo(true);
+    var d = (S.cfg.debts || []).find(function (x) { return x.id === id; });
+    if (!d || d.settled) return;
+    d.settled = true;
+    d.settledAt = TODAY_ISO;
+    if (S.cfg.debtAutoTx !== false) {
+      var tx = {
+        id: uid(), t: d.dir === 'owed' ? 'g' : 'i',
+        a: r2(convert(d.amount, d.cur, S.cfg.cur)),
+        c: d.dir === 'owed' ? 'otr' : 'otri',
+        n: (d.name + ' · ' + t('debts.txNote')).slice(0, 60),
+        d: TODAY_ISO, h: 0, r: ('debt:' + d.id).slice(0, 40)
+      };
+      if (!S.months[TODAY_YM]) S.months[TODAY_YM] = [];
+      S.months[TODAY_YM].push(tx);
+      persistMonth(TODAY_YM);
+    }
+    persistCfg();
+    renderAll();
+    toast(t('debts.settledToast', { name: d.name }));
+  }
+
+  function delDebt(id) {
+    if (S.demo) loadDemo(true);
+    S.cfg.debts = (S.cfg.debts || []).filter(function (x) { return x.id !== id; });
+    persistCfg();
+    renderAll();
+    toast(t('debts.deleted'));
+  }
+
+  function renderDebts() {
+    var cfg = getCfg(), el = $('#debts');
+    if (!el) return;
+    var all = (cfg.debts || []).slice().sort(function (a, b) {
+      if (a.settled !== b.settled) return a.settled ? 1 : -1;
+      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+    });
+    var compact = S.view !== 'debts';
+    var shown = compact ? all.filter(function (d) { return !d.settled; }).slice(0, 3) : all;
+    var tot = debtTotals();
+    var head = '<div class="ct">' + esc(t('debts.title')) + '<span class="sub">' + esc(t('debts.sub')) + '</span></div>';
+    var totals = '<div class="dbtotals">' +
+      '<div class="dbtot lent"><span>' + esc(t('debts.totalLent')) + '</span><b>' + esc(money(tot.lent, true)) + '</b></div>' +
+      '<div class="dbtot owed"><span>' + esc(t('debts.totalOwed')) + '</span><b>' + esc(money(tot.owed, true)) + '</b></div>' +
+      '<div class="dbtot net"><span>' + esc(t('debts.net')) + '</span><b>' + esc(money(tot.net, true)) + '</b></div></div>';
+
+    var form = '';
+    if (!compact && !S.demo) {
+      var d = debtDraft();
+      var opts = currencyOptions(d.cur || cfg.cur);
+      form = '<div class="dbtform">' +
+        '<div><label class="lab" for="debt-name">' + esc(t('debts.person')) + '</label><input class="field" id="debt-name" maxlength="40" autocomplete="off" value="' + esc(d.name) + '" placeholder="' + esc(t('debts.personPh')) + '"></div>' +
+        '<div><label class="lab" for="debt-amt">' + esc(t('debts.amount')) + '</label><input class="field" id="debt-amt" inputmode="decimal" autocomplete="off" value="' + esc(d.amount) + '" placeholder="0"></div>' +
+        '<div><label class="lab" for="debt-cur">' + esc(t('debts.currency')) + '</label><select class="field" id="debt-cur">' + opts + '</select></div>' +
+        '<div><label class="lab" for="debt-dir">' + esc(t('debts.title')) + '</label><select class="field" id="debt-dir">' +
+          '<option value="lent"' + (d.dir !== 'owed' ? ' selected' : '') + '>' + esc(t('debts.lent')) + '</option>' +
+          '<option value="owed"' + (d.dir === 'owed' ? ' selected' : '') + '>' + esc(t('debts.owed')) + '</option></select></div>' +
+        '<div class="wide"><label class="lab" for="debt-note">' + esc(t('debts.note')) + '</label><input class="field" id="debt-note" maxlength="60" autocomplete="off" value="' + esc(d.note) + '" placeholder="' + esc(t('debts.notePh')) + '"></div>' +
+        '<label class="dbtcheck"><input type="checkbox" id="debt-auto"' + (d.auto !== false ? ' checked' : '') + '><span>' + esc(t('debts.autoTx')) + '</span></label>' +
+        '<p class="dbthint">' + esc(t('debts.autoTxHint')) + '</p>' +
+        '<button type="button" class="primary" data-act="debt-add">' + esc(t('debts.add')) + '</button></div>';
+    }
+
+    var list = '';
+    if (!shown.length) {
+      list = '<p class="empty">' + esc(t('debts.empty')) + '</p>';
+    } else {
+      list = '<div class="dbtlist">' + shown.map(function (x) {
+        var dirCls = x.dir === 'owed' ? 'owed' : 'lent';
+        var base = moneyCur(convert(x.amount, x.cur, cfg.cur), cfg.cur);
+        var conv = x.cur !== cfg.cur ? '<small>≈ ' + esc(base) + '</small>' : '';
+        var action = x.settled
+          ? '<button type="button" class="paybtn" disabled>' + esc(t('debts.settled')) + '</button>'
+          : '<button type="button" class="paybtn settlebtn" data-act="debt-settle" data-id="' + esc(x.id) + '">' + esc(t('debts.settle')) + '</button>';
+        var rm = S.demo ? '' : '<button type="button" class="dbterm" data-act="debt-del" data-id="' + esc(x.id) + '" aria-label="' + esc(t('debts.deleteAria', { name: x.name })) + '">' +
+          '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>';
+        return '<div class="dbtitem' + (x.settled ? ' done' : '') + '">' +
+          '<span class="item-icon" aria-hidden="true" style="background:' + (dirCls === 'owed' ? '#ef4444' : '#059669') + ';color:#fff">' +
+            '<svg viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 013 3v7a3 3 0 01-3 3H3z"/><path d="M3 7V4.8h13V7M16 13.5h4"/></svg></span>' +
+          '<div class="dbtmain"><div class="t1">' + esc(x.name) + '</div><div class="dbtmeta"><span class="dbtdir ' + dirCls + '">' + esc(t('debts.' + dirCls)) + '</span>' +
+            (x.note ? ' · ' + esc(x.note) : '') + '</div></div>' +
+          '<div class="dbtamt">' + esc(moneyCur(x.amount, x.cur)) + conv + '</div>' + action + rm + '</div>';
+      }).join('') + '</div>';
+    }
+    var warn = tot.missing ? '<p class="note">' + esc(tn('debts.unconverted', tot.missing)) + '</p>' : '';
+    var more = compact ? '<button type="button" class="ghost upmore" data-act="view" data-view="debts">' + esc(t('debts.manage')) + '</button>' : '';
+    var demoNote = S.demo ? '<p class="note">' + esc(t('settings.demoNote')) + '</p>' : '';
+    el.innerHTML = head + totals + form + list + warn + more + demoNote;
+  }
+
+  function fxSettingsHtml() {
+    var f = fxDraft(), rates = getCfg().rates || {};
+    var keys = Object.keys(rates).sort();
+    var rows = keys.length ? keys.map(function (k) {
+      var p = k.split('>');
+      return '<div class="fxrow"><span>1 ' + esc(p[0]) + ' = <b>' + esc(rates[k]) + ' ' + esc(p[1]) + '</b></span>' +
+        '<button type="button" data-act="fx-del" data-pair="' + esc(k) + '" aria-label="' + esc(t('fx.remove', { pair: k })) + '">×</button></div>';
+    }).join('') : '<p class="empty">' + esc(t('fx.none')) + '</p>';
+    return '<div class="sec"><h3>' + esc(t('fx.title')) + '</h3>' +
+      '<div class="fxform">' +
+        '<label class="sr" for="fx-from">' + esc(t('fx.from')) + '</label><select class="field" id="fx-from">' + currencyOptions(f.from) + '</select>' +
+        '<label class="sr" for="fx-to">' + esc(t('fx.to')) + '</label><select class="field" id="fx-to">' + currencyOptions(f.to) + '</select>' +
+        '<label class="sr" for="fx-rate">' + esc(t('fx.rate')) + '</label><input class="field wide" id="fx-rate" inputmode="decimal" autocomplete="off" value="' + esc(f.rate) + '" placeholder="' + esc(t('fx.ratePh')) + '">' +
+        '<button type="button" class="primary wide" data-act="fx-save">' + esc(t('fx.save')) + '</button></div>' +
+      '<p class="note">' + esc(t('fx.note')) + '</p>' +
+      '<h3 style="margin-top:14px">' + esc(t('fx.list')) + '</h3><div class="fxlist">' + rows + '</div>' +
+      '<div class="fxconv"><h3>' + esc(t('fx.convertTitle')) + '</h3><div class="fxform">' +
+        '<label class="sr" for="cv-amt">' + esc(t('fx.amount')) + '</label><input class="field" id="cv-amt" inputmode="decimal" autocomplete="off" value="' + esc(f.amount) + '" placeholder="0">' +
+        '<label class="sr" for="cv-from">' + esc(t('fx.from')) + '</label><select class="field" id="cv-from">' + currencyOptions(f.cfrom) + '</select>' +
+        '<label class="sr" for="cv-to">' + esc(t('fx.to')) + '</label><select class="field" id="cv-to">' + currencyOptions(f.cto) + '</select>' +
+        '<button type="button" class="ghost wide" data-act="fx-convert">' + esc(t('fx.convert')) + '</button></div>' +
+        '<p class="fxout" id="cv-out"></p></div></div>';
+  }
+
   /* ---------- settings ---------- */
   function renderSettings() {
     var el = $('#sbody');
@@ -1461,6 +1884,7 @@
       '<label class="sr" for="s-cur">' + t('settings.currency') + '</label>' +
       '<select class="field" id="s-cur">' + currencyOptions(c.cur) + '</select>' +
       '<p class="note">' + t('settings.currencyNote') + '</p></div>' +
+      fxSettingsHtml() +
       '<div class="sec"><h3>' + t('settings.language') + '</h3>' +
       '<label class="sr" for="s-lang">' + t('settings.language') + '</label>' +
       '<select class="field" id="s-lang">' + languageOptions() + '</select>' +
@@ -1551,6 +1975,8 @@
       S.confirmDel = null;
       S.editTx = null;
       S.recDraft = null;
+    S.debtDraft = null;
+    S.fxDraft = null;
       resetSearch();
       lsSave();
       $('#dt').value = defaultDate(S.viewYM);
@@ -1588,6 +2014,8 @@
     S.confirmDel = null;
     S.editTx = null;
     S.recDraft = null;
+    S.debtDraft = null;
+    S.fxDraft = null;
     resetSearch();
     $('#dt').value = TODAY_ISO;
     closeSettings();
@@ -1684,7 +2112,13 @@
       renderSettings();
       renderChips();
       renderAll();
-    } else if (a === 'export-json') exportJson();
+    } else if (a === 'debt-add') addDebt();
+    else if (a === 'debt-settle') settleDebt(b.dataset.id);
+    else if (a === 'debt-del') delDebt(b.dataset.id);
+    else if (a === 'fx-save') saveFxRate();
+    else if (a === 'fx-del') removeFxRate(b.dataset.pair);
+    else if (a === 'fx-convert') doConvert();
+    else if (a === 'export-json') exportJson();
     else if (a === 'import-json') importJson();
     else if (a === 'export-csv') exportCsv();
     else if (a === 'reset') resetAll();
@@ -1709,6 +2143,15 @@
       return;
     }
     if (el.id === 'rec-cat') { captureRecForm(); return; }
+    if (el.id === 'rec-type') { captureRecForm(); renderFixed(); return; }
+    if (el.id === 'debt-auto') {
+      captureDebtForm();
+      S.cfg.debtAutoTx = el.checked;
+      persistCfg();
+      return;
+    }
+    if (['debt-cur', 'debt-dir'].indexOf(el.id) >= 0) { captureDebtForm(); return; }
+    if (['fx-from', 'fx-to', 'cv-from', 'cv-to'].indexOf(el.id) >= 0) { captureFxForm(); return; }
     if (S.demo) return;
     if (el.id === 's-save') {
       var v = parseAmount(el.value);
@@ -1758,6 +2201,8 @@
     }
     if (e.target.id === 'note') updateIconPreview();
     if (e.target.id === 'rec-name' || e.target.id === 'rec-amt' || e.target.id === 'rec-day') captureRecForm();
+    if (['debt-name', 'debt-amt', 'debt-note'].indexOf(e.target.id) >= 0) captureDebtForm();
+    if (['fx-rate', 'cv-amt'].indexOf(e.target.id) >= 0) captureFxForm();
   });
 
   document.addEventListener('keydown', function (e) {
@@ -1785,6 +2230,21 @@
       e.preventDefault();
       var ab = $('[data-act="addcat"]');
       if (ab) ab.click();
+    }
+    if (e.key === 'Enter' && ['debt-name', 'debt-amt', 'debt-note'].indexOf(e.target.id) >= 0) {
+      e.preventDefault();
+      captureDebtForm();
+      addDebt();
+    }
+    if (e.key === 'Enter' && e.target.id === 'fx-rate') {
+      e.preventDefault();
+      var sb = $('[data-act="fx-save"]');
+      if (sb) sb.click();
+    }
+    if (e.key === 'Enter' && e.target.id === 'cv-amt') {
+      e.preventDefault();
+      var cb = $('[data-act="fx-convert"]');
+      if (cb) cb.click();
     }
   });
 

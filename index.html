@@ -76,6 +76,7 @@
       <button type="button" data-act="view" data-view="movements" role="tab" aria-selected="false" data-i18n="views.movements">Movements</button>
       <button type="button" data-act="view" data-view="fixed" role="tab" aria-selected="false" data-i18n="views.fixed">Fixed payments</button>
       <button type="button" data-act="view" data-view="goals" role="tab" aria-selected="false" data-i18n="views.goals">Goals</button>
+      <button type="button" data-act="view" data-view="debts" role="tab" aria-selected="false" data-i18n="views.debts">Debts &amp; loans</button>
     </nav>
 
     <div id="demo"></div>
@@ -84,6 +85,8 @@
       <section class="kpis" id="kpis" aria-label="Key figures" data-i18n-aria="kpi.group"></section>
 
       <section class="card v-overview" id="pace" aria-label="Month evolution" data-i18n-aria="ui.evolution"></section>
+
+      <section class="card v-overview" id="compare" aria-label="Month comparison" data-i18n-aria="compare.title"></section>
 
       <section class="card v-overview v-movements" id="list" aria-label="Transactions" data-i18n-aria="ui.history">
         <div class="ct"><span data-i18n="ui.history">Movement history</span><span class="sub" id="listcount"></span></div>
@@ -114,6 +117,8 @@
       <section class="card v-fixed" id="fixed" aria-label="Recurring payments" data-i18n-aria="fixed.title"></section>
 
       <section class="card v-goals" id="history" aria-label="Last 6 months" data-i18n-aria="history.title"></section>
+
+      <section class="card v-overview v-debts" id="debts" aria-label="Debts and loans" data-i18n-aria="debts.title"></section>
     </main>
   </div>
 
