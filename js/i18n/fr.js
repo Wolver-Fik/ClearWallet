@@ -369,3 +369,40 @@ Object.assign(window.CWI18N.fr, {
     missing: 'Définissez d’abord un taux pour cette paire.'
   }
 });
+
+Object.assign(window.CWI18N.fr.views, { accounts: 'Comptes' });
+Object.assign(window.CWI18N.fr.add, { accountLabel: 'Compte' });
+Object.assign(window.CWI18N.fr.list, { accountFilter: 'Compte', allAccounts: 'Tous les comptes' });
+Object.assign(window.CWI18N.fr.csv, {
+  account: 'Compte', currency: 'Devise', original: 'Montant initial', destination: 'Reçu à destination'
+});
+Object.assign(window.CWI18N.fr, {
+  accounts: {
+    title: 'Comptes et portefeuilles', sub: 'Soldes et transferts internes',
+    new: 'Nouveau compte', edit: 'Modifier le compte', main: 'Compte principal',
+    cash: 'Espèces', bank: 'Banque', card: 'Carte', savings: 'Épargne', other: 'Autre', custom: 'Personnalisé',
+    unknown: 'Compte inconnu',
+    name: 'Nom du compte', namePh: 'ex. Compte courant, Espèces',
+    type: 'Type de compte', currency: 'Devise', initial: 'Solde initial', color: 'Couleur',
+    save: 'Enregistrer le compte', formHint: 'Le solde initial s’ajoute aux mouvements du compte. Les transferts ne comptent jamais comme recette ou dépense.',
+    nameError: 'Saisissez un nom de compte', initialError: 'Saisissez un solde initial valide',
+    lastError: 'Vous devez garder au moins un compte', created: 'Compte créé', updated: 'Compte mis à jour', deleted: 'Compte supprimé',
+    editAria: 'Modifier {name}', deleteAria: 'Supprimer {name}', deleteConfirm: 'Supprimer ?',
+    total: 'Solde consolidé', totalSub: '{n} comptes',
+    initialShort: 'Initial', incomeShort: 'Recettes', expensesShort: 'Dépenses',
+    unconverted: { one: '{n} compte sans taux', other: '{n} comptes sans taux' },
+    rateMissing: 'Aucun taux pour cette devise ; utilisation de 1:1'
+  },
+  transfer: {
+    title: 'Transfert entre comptes', short: 'Transférer', new: 'Nouveau transfert',
+    from: 'Compte source', to: 'Compte destinataire', amount: 'Montant', rate: 'Taux de change', date: 'Date',
+    note: 'Note (facultative)', notePh: 'ex. épargne, espèces…', save: 'Transférer', cancel: 'Annuler',
+    hint: 'Déplace de l’argent entre vos comptes. Jamais compté comme recette ou dépense.',
+    rateHint: '1 {from} = taux {to}', sameCurHint: 'Même devise : taux fixé à 1',
+    history: 'Transferts internes', listSub: 'Non comptés comme recettes ou dépenses', empty: 'Aucun transfert pour l’instant.',
+    needTwo: 'Créez au moins deux comptes pour transférer', sameError: 'Choisissez deux comptes différents',
+    amountError: 'Saisissez un montant supérieur à zéro', rateError: 'Saisissez un taux supérieur à zéro',
+    added: 'Transfert ajouté : {amount}', deleted: 'Transfert supprimé', deleteAria: 'Supprimer le transfert',
+    csvType: 'Transfert', demoSavings: 'Épargne mensuelle', demoCash: 'Retrait d’espèces'
+  }
+});

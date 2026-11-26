@@ -369,3 +369,40 @@ Object.assign(window.CWI18N.it, {
     missing: 'Imposta prima un tasso per questa coppia.'
   }
 });
+
+Object.assign(window.CWI18N.it.views, { accounts: 'Conti' });
+Object.assign(window.CWI18N.it.add, { accountLabel: 'Conto' });
+Object.assign(window.CWI18N.it.list, { accountFilter: 'Conto', allAccounts: 'Tutti i conti' });
+Object.assign(window.CWI18N.it.csv, {
+  account: 'Conto', currency: 'Valuta', original: 'Importo originale', destination: 'Ricevuto a destinazione'
+});
+Object.assign(window.CWI18N.it, {
+  accounts: {
+    title: 'Conti e portafogli', sub: 'Saldi e trasferimenti interni',
+    new: 'Nuovo conto', edit: 'Modifica conto', main: 'Conto principale',
+    cash: 'Contanti', bank: 'Banca', card: 'Carta', savings: 'Risparmio', other: 'Altro', custom: 'Personalizzato',
+    unknown: 'Conto sconosciuto',
+    name: 'Nome del conto', namePh: 'es. Conto corrente, Contanti',
+    type: 'Tipo di conto', currency: 'Valuta', initial: 'Saldo iniziale', color: 'Colore',
+    save: 'Salva conto', formHint: 'Il saldo iniziale si somma ai movimenti del conto. I trasferimenti non sono mai entrate o uscite.',
+    nameError: 'Inserisci un nome per il conto', initialError: 'Inserisci un saldo iniziale valido',
+    lastError: 'Devi mantenere almeno un conto', created: 'Conto creato', updated: 'Conto aggiornato', deleted: 'Conto eliminato',
+    editAria: 'Modifica {name}', deleteAria: 'Elimina {name}', deleteConfirm: 'Eliminare?',
+    total: 'Saldo consolidato', totalSub: '{n} conti',
+    initialShort: 'Iniziale', incomeShort: 'Entrate', expensesShort: 'Uscite',
+    unconverted: { one: '{n} conto senza tasso', other: '{n} conti senza tasso' },
+    rateMissing: 'Nessun tasso per questa valuta; uso 1:1'
+  },
+  transfer: {
+    title: 'Trasferimento tra conti', short: 'Trasferisci', new: 'Nuovo trasferimento',
+    from: 'Conto di origine', to: 'Conto di destinazione', amount: 'Importo', rate: 'Tasso di cambio', date: 'Data',
+    note: 'Nota (facoltativa)', notePh: 'es. risparmio, contanti…', save: 'Trasferisci', cancel: 'Annulla',
+    hint: 'Sposta denaro tra i tuoi conti. Non compare mai come entrata o uscita.',
+    rateHint: '1 {from} = tasso {to}', sameCurHint: 'Stessa valuta: tasso fisso a 1',
+    history: 'Trasferimenti interni', listSub: 'Non conteggiati come entrate o uscite', empty: 'Nessun trasferimento.',
+    needTwo: 'Crea almeno due conti per trasferire', sameError: 'Scegli due conti diversi',
+    amountError: 'Inserisci un importo maggiore di zero', rateError: 'Inserisci un tasso maggiore di zero',
+    added: 'Trasferimento aggiunto: {amount}', deleted: 'Trasferimento eliminato', deleteAria: 'Elimina trasferimento',
+    csvType: 'Trasferimento', demoSavings: 'Risparmio mensile', demoCash: 'Prelievo contanti'
+  }
+});

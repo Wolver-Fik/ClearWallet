@@ -369,3 +369,40 @@ Object.assign(window.CWI18N.de, {
     missing: 'Lege zuerst einen Kurs für dieses Paar fest.'
   }
 });
+
+Object.assign(window.CWI18N.de.views, { accounts: 'Konten' });
+Object.assign(window.CWI18N.de.add, { accountLabel: 'Konto' });
+Object.assign(window.CWI18N.de.list, { accountFilter: 'Konto', allAccounts: 'Alle Konten' });
+Object.assign(window.CWI18N.de.csv, {
+  account: 'Konto', currency: 'Währung', original: 'Ursprünglicher Betrag', destination: 'Am Ziel erhalten'
+});
+Object.assign(window.CWI18N.de, {
+  accounts: {
+    title: 'Konten und Geldbörsen', sub: 'Salden und interne Überweisungen',
+    new: 'Neues Konto', edit: 'Konto bearbeiten', main: 'Hauptkonto',
+    cash: 'Bargeld', bank: 'Bank', card: 'Karte', savings: 'Ersparnisse', other: 'Sonstiges', custom: 'Benutzerdefiniert',
+    unknown: 'Unbekanntes Konto',
+    name: 'Kontoname', namePh: 'z. B. Girokonto, Bargeld',
+    type: 'Kontotyp', currency: 'Währung', initial: 'Anfangssaldo', color: 'Farbe',
+    save: 'Konto speichern', formHint: 'Der Anfangssaldo wird zu den Bewegungen des Kontos addiert. Überweisungen zählen nie als Einnahme oder Ausgabe.',
+    nameError: 'Bitte einen Kontonamen eingeben', initialError: 'Bitte einen gültigen Anfangssaldo eingeben',
+    lastError: 'Mindestens ein Konto ist erforderlich', created: 'Konto erstellt', updated: 'Konto aktualisiert', deleted: 'Konto gelöscht',
+    editAria: '{name} bearbeiten', deleteAria: '{name} löschen', deleteConfirm: 'Löschen?',
+    total: 'Gesamtsaldo', totalSub: '{n} Konten',
+    initialShort: 'Anfang', incomeShort: 'Einnahmen', expensesShort: 'Ausgaben',
+    unconverted: { one: '{n} Konto ohne Kurs', other: '{n} Konten ohne Kurs' },
+    rateMissing: 'Kein Kurs für diese Währung; 1:1 verwendet'
+  },
+  transfer: {
+    title: 'Überweisung zwischen Konten', short: 'Überweisen', new: 'Neue Überweisung',
+    from: 'Quellkonto', to: 'Zielkonto', amount: 'Betrag', rate: 'Wechselkurs', date: 'Datum',
+    note: 'Notiz (optional)', notePh: 'z. B. Ersparnisse, Bargeld…', save: 'Überweisen', cancel: 'Abbrechen',
+    hint: 'Verschiebt Geld zwischen deinen Konten. Wird nie als Einnahme oder Ausgabe gezählt.',
+    rateHint: '1 {from} = Kurs {to}', sameCurHint: 'Gleiche Währung: Kurs fest auf 1',
+    history: 'Interne Überweisungen', listSub: 'Nicht als Einnahmen oder Ausgaben gezählt', empty: 'Noch keine Überweisungen.',
+    needTwo: 'Erstelle mindestens zwei Konten zum Überweisen', sameError: 'Wähle zwei verschiedene Konten',
+    amountError: 'Bitte einen Betrag größer als null eingeben', rateError: 'Bitte einen Kurs größer als null eingeben',
+    added: 'Überweisung hinzugefügt: {amount}', deleted: 'Überweisung gelöscht', deleteAria: 'Überweisung löschen',
+    csvType: 'Überweisung', demoSavings: 'Monatliche Ersparnisse', demoCash: 'Bargeldauffüllung'
+  }
+});

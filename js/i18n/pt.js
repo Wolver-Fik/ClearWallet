@@ -369,3 +369,40 @@ Object.assign(window.CWI18N.pt, {
     missing: 'Defina uma taxa para este par primeiro.'
   }
 });
+
+Object.assign(window.CWI18N.pt.views, { accounts: 'Contas' });
+Object.assign(window.CWI18N.pt.add, { accountLabel: 'Conta' });
+Object.assign(window.CWI18N.pt.list, { accountFilter: 'Conta', allAccounts: 'Todas as contas' });
+Object.assign(window.CWI18N.pt.csv, {
+  account: 'Conta', currency: 'Moeda', original: 'Valor original', destination: 'Recebido no destino'
+});
+Object.assign(window.CWI18N.pt, {
+  accounts: {
+    title: 'Contas e carteiras', sub: 'Saldos e transferências internas',
+    new: 'Nova conta', edit: 'Editar conta', main: 'Conta principal',
+    cash: 'Dinheiro', bank: 'Banco', card: 'Cartão', savings: 'Poupança', other: 'Outra', custom: 'Personalizada',
+    unknown: 'Conta desconhecida',
+    name: 'Nome da conta', namePh: 'ex.: Conta corrente, Dinheiro',
+    type: 'Tipo de conta', currency: 'Moeda', initial: 'Saldo inicial', color: 'Cor',
+    save: 'Guardar conta', formHint: 'O saldo inicial é somado aos movimentos da conta. Transferências nunca contam como receita ou despesa.',
+    nameError: 'Escreva um nome para a conta', initialError: 'Escreva um saldo inicial válido',
+    lastError: 'Precisa de pelo menos uma conta', created: 'Conta criada', updated: 'Conta atualizada', deleted: 'Conta excluída',
+    editAria: 'Editar {name}', deleteAria: 'Excluir {name}', deleteConfirm: 'Excluir?',
+    total: 'Saldo consolidado', totalSub: '{n} contas',
+    initialShort: 'Inicial', incomeShort: 'Receitas', expensesShort: 'Despesas',
+    unconverted: { one: '{n} conta sem taxa', other: '{n} contas sem taxa' },
+    rateMissing: 'Sem taxa para esta moeda; usando 1:1'
+  },
+  transfer: {
+    title: 'Transferência entre contas', short: 'Transferir', new: 'Nova transferência',
+    from: 'Conta de origem', to: 'Conta de destino', amount: 'Valor', rate: 'Taxa de conversão', date: 'Data',
+    note: 'Nota (opcional)', notePh: 'ex.: poupança, dinheiro…', save: 'Transferir', cancel: 'Cancelar',
+    hint: 'Move dinheiro entre suas contas. Nunca aparece como receita ou despesa.',
+    rateHint: '1 {from} = taxa {to}', sameCurHint: 'Mesma moeda: taxa fixa em 1',
+    history: 'Transferências internas', listSub: 'Não contam como receita nem despesa', empty: 'Ainda não há transferências.',
+    needTwo: 'Crie pelo menos duas contas para transferir', sameError: 'Escolha duas contas diferentes',
+    amountError: 'Escreva um valor maior que zero', rateError: 'Escreva uma taxa maior que zero',
+    added: 'Transferência adicionada: {amount}', deleted: 'Transferência excluída', deleteAria: 'Excluir transferência',
+    csvType: 'Transferência', demoSavings: 'Poupança mensal', demoCash: 'Recarga de dinheiro'
+  }
+});

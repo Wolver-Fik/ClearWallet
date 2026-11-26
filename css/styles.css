@@ -31,8 +31,11 @@ body{
 img{max-width:100%}
 button,input,select{font:inherit;color:inherit;hyphens:none;-webkit-hyphens:none;word-break:normal}
 button{cursor:pointer}
-/* Mobile labels stay on one line: no mid-word hyphens in tabs or buttons. */
-.viewtabs button,.chip,.primary,.ghost,.paybtn,.klabel,.tag{white-space:nowrap;hyphens:none;-webkit-hyphens:none}
+/* Mobile labels stay on one line: no mid-word hyphens in tabs, buttons or
+   account/transfer data. Applies to iOS Safari and Android Chrome alike. */
+.viewtabs button,.chip,.primary,.ghost,.paybtn,.klabel,.tag,
+.acctag,.acctname,.accttype,.acctbal,.acctmeta b,.xfwho,.xfamt,.accfilter select,
+.transferhdr span,.accbtn{white-space:nowrap;hyphens:none;-webkit-hyphens:none;word-break:normal}
 .num{font-variant-numeric:tabular-nums}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:7px}
@@ -118,6 +121,7 @@ button{cursor:pointer}
 .dashboard[data-view="fixed"] .v-fixed{display:block}
 .dashboard[data-view="goals"] .v-goals{display:block}
 .dashboard[data-view="debts"] .v-debts{display:block}
+.dashboard[data-view="accounts"] .v-accounts{display:block}
 .dashboard .kpis{display:none}
 .dashboard[data-view="overview"] .kpis{display:grid}
 
@@ -140,6 +144,7 @@ button{cursor:pointer}
 .dashboard[data-view="goals"] #goal{grid-column:1/7}
 .dashboard[data-view="goals"] #history{grid-column:7/13}
 .dashboard[data-view="debts"] #debts{grid-column:1/-1}
+.dashboard[data-view="accounts"] #accounts{grid-column:1/-1}
 
 .card{
   background:linear-gradient(180deg,rgba(255,255,255,.018),transparent 130px),var(--s1);
@@ -470,6 +475,53 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .recrm:hover{color:var(--bad);background:var(--s2)}
 .recrm svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
+/* ---------- accounts & internal transfers (Etapa 2) ---------- */
+.transferhdr{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;font-size:13px;border-radius:11px;white-space:nowrap}
+.transferhdr svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.accthead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.accttotal{display:flex;flex-direction:column;gap:2px;min-width:0}
+.accttotal .lab{font:600 11px var(--ff);letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+.accttotal b{font:600 clamp(21px,3vw,28px)/1.1 var(--fd);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.acctactions{display:flex;flex-wrap:wrap;gap:8px}
+.accbtn{padding:9px 13px;font-size:12.5px;border-radius:10px}
+.acctgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+.acctcard{position:relative;min-width:0;padding:14px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(155deg,rgba(138,164,255,.07),transparent 60%),var(--s2)}
+.acctcard::before{content:'';position:absolute;left:14px;right:14px;top:0;height:2px;border-radius:0 0 4px 4px;background:var(--accent);opacity:.75}
+.accttop{display:flex;align-items:center;gap:9px;min-width:0}
+.accticon{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:10px;background:rgba(138,164,255,.12);color:var(--accent)}
+.accticon svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.acctname{display:block;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.accttype{display:block;font-size:11px;color:var(--dim)}
+.acctbal{display:block;margin:11px 0 2px;font:600 20px/1.15 var(--fd);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.acctbal.neg{color:var(--bad)}
+.acctmeta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--mut)}
+.acctmeta b{font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums}
+.acctbar{height:5px;border-radius:99px;background:var(--bg);overflow:hidden;margin:10px 0 8px}
+.acctbar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.acctacts{display:flex;gap:6px;justify-content:flex-end}
+.acctacts .icon{width:30px;height:30px;border:1px solid var(--line);background:var(--s1)}
+.acctacts .icon:hover{color:var(--accent)}
+.acctacts .icon.danger:hover{color:var(--bad)}
+.xftitle{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px;font:600 11px var(--ff);letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+.xftitle .sub{font:400 11.5px var(--ff);letter-spacing:0;text-transform:none;color:var(--dim)}
+.xflist{display:flex;flex-direction:column}
+.xfrow{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto 30px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.xfrow:first-of-type{border-top:0}
+.xfwho{min-width:0;font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.xfwho small{display:block;font-size:11px;font-weight:400;color:var(--dim)}
+.xfamt{text-align:right;font:600 13px var(--fd);font-variant-numeric:tabular-nums}
+.xfamt small{display:block;font:400 11px var(--ff);color:var(--mut)}
+.xfdate{font-size:11.5px;color:var(--dim);white-space:nowrap}
+.accform,.xfedit{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--s2)}
+.accform .wide,.xfedit .wide{grid-column:1/-1}
+.accform .lab,.xfedit .lab{display:block;font-size:11.5px;color:var(--mut);margin:0 0 5px}
+.accform .field,.xfedit .field{padding:9px 10px}
+.accform .primary,.xfedit .primary,.accform .ghost,.xfedit .ghost{grid-column:span 1;width:100%;padding:9px 12px}
+.xfhint{margin:0 0 12px;font-size:11.5px;color:var(--dim)}
+.accfilter select{width:auto;min-width:118px;max-width:170px;padding:7px 28px 7px 10px;font-size:12.5px}
+.acctag{border-color:rgba(110,231,249,.35);color:var(--accent2)}
+.tx .amt2.xfer{color:var(--accent2)}
+
 /* ---------- settings sheet ---------- */
 .sheet{position:fixed;inset:0;z-index:40}
 .sheet-bg{position:absolute;inset:0;background:rgba(4,5,7,.7);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
@@ -525,20 +577,23 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .dashboard[data-view="fixed"] #fixed,
   .dashboard[data-view="goals"] #goal,
   .dashboard[data-view="goals"] #history{grid-column:1/-1}
+  .dashboard[data-view="accounts"] #accounts{grid-column:1/-1}
 }
 @media (max-width:768px){
-  /* All five views fit on two rows: no horizontal scrolling on iOS/Android. */
+  /* All six views fit on two rows of three: no mid-word breaks, no
+     horizontal scrolling on iOS/Android. */
   .viewtabs{
     display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
     gap:6px;padding:6px;margin:0 0 12px;overflow:visible;
   }
   .viewtabs button{
-    flex:none;min-width:0;padding:8px 4px;text-align:center;
+    flex:none;min-width:0;grid-column:span 2;padding:8px 4px;text-align:center;
     font-size:clamp(9px,2.8vw,12px);line-height:1.15;
-    white-space:nowrap;hyphens:none;-webkit-hyphens:none;
+    white-space:nowrap;hyphens:none;-webkit-hyphens:none;word-break:normal;
   }
-  .viewtabs button:nth-child(-n+3){grid-column:span 2}
-  .viewtabs button:nth-child(n+4){grid-column:span 3}
+  .acctgrid{grid-template-columns:1fr 1fr}
+  .transferhdr span{display:none}
+  .transferhdr{padding:9px 11px}
 }
 @media (max-width:760px){
   .top .monthnav{order:3;width:100%;justify-content:space-between;margin-left:0}
@@ -575,6 +630,16 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .dbtitem .dbtamt,.dbtitem .settlebtn,.dbtitem .dbterm{grid-column:2/4;justify-self:start}
   .dbtitem .dbtamt{text-align:left}
   .fxform{grid-template-columns:1fr}
+  .acctgrid{grid-template-columns:1fr}
+  .accthead{align-items:flex-start}
+  .acctactions{width:100%}
+  .acctactions .accbtn{flex:1}
+  .accform,.xfedit{grid-template-columns:1fr}
+  .accform .primary,.accform .ghost,.xfedit .primary,.xfedit .ghost{grid-column:1/-1}
+  .accfilter select{min-width:0;max-width:100%;width:100%}
+  .xfrow{grid-template-columns:28px minmax(0,1fr) auto;row-gap:4px}
+  .xfrow .xfdate{grid-column:2;justify-self:start}
+  .xfrow .xfdel{grid-column:3;justify-self:end}
 }
 @media (prefers-reduced-motion:reduce){
   #toast{transition:none}

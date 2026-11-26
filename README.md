@@ -27,6 +27,8 @@ ClearWallet is a single-screen personal finance app with a modern dark bento das
 - **Month-by-month category comparison** — see how each category changes over time with per-category month-over-month figures.
 - **Debts & loans tracking** — record what you owe and what is owed to you, with one-click quick settlement.
 - **Manual exchange rates, 100% offline** — enter your own rates and convert amounts without any network request.
+- **Multiple accounts and wallets** — cash, bank, card, savings or custom accounts with their own currency, initial balance and colour.
+- **Internal transfers** — move money between accounts with optional conversion rate, date and note; they never count as income or expenses.
 - **8 languages** — English, Spanish, Portuguese, French, Italian, German, Russian and Japanese.
 - **Global currencies** — automatic currency detection from the browser region/timezone and exact `Intl.NumberFormat` formatting.
 - **Data sovereignty** — JSON backup/restore and monthly CSV export. No account, no server, no tracking.
@@ -38,7 +40,7 @@ ClearWallet is a single-screen personal finance app with a modern dark bento das
 clear-wallet/
 ├── index.html                 # Clean semantic shell
 ├── manifest.webmanifest       # PWA manifest
-├── sw.js                      # Service worker (cache clearwallet-v1.2.1)
+├── sw.js                      # Service worker (cache clearwallet-v1.5.0)
 ├── LICENSE                    # PolyForm Noncommercial License 1.0.0
 ├── README.md                  # This file
 ├── css/
@@ -46,8 +48,8 @@ clear-wallet/
 ├── icons/
 │   └── icon.svg               # Emerald wallet + chart icon
 └── js/
-    ├── app.js                 # KPIs, charts, offline SVG icons, recurring payments, history, demo, events
-    ├── storage.js             # localStorage, JSON backups, CSV export
+    ├── app.js                 # KPIs, charts, accounts, internal transfers, recurring payments, history, demo, events
+    ├── storage.js             # IndexedDB, localStorage mirror, JSON backups, CSV export
     └── i18n/
         ├── en.js  es.js  pt.js  fr.js
         ├── it.js  de.js  ru.js  ja.js
@@ -62,18 +64,18 @@ clear-wallet/
 
 ### Data and backups
 
-- Data is stored in `localStorage` under `clearwallet-v1`.
+- IndexedDB (`clearwallet_db`, schema v3) is the primary store, mirrored synchronously in `localStorage` under `clearwallet-v1`. Accounts and transfers live in their own object stores and are migrated automatically from older versions.
 - When there are no movements and no recurring payments stored, the enriched demo is loaded automatically so the donut and the evolution curve are filled from the first visit.
 - **Load sample data (Demo)** is always available in Settings and in the empty states of the history, donut and evolution chart.
 - **Start from scratch** clears the sample data and starts a real budget from $0.
-- **Export backup (.json)** downloads a complete snapshot of settings and monthly transactions.
+- **Export backup (.json)** downloads a complete snapshot of settings, accounts, transfers and monthly transactions.
 - **Import backup (.json)** validates the file and replaces the current data after confirmation.
-- **Export this month's transactions (.csv)** downloads a UTF-8 CSV (with BOM) for the selected month.
+- **Export this month's data (.csv)** downloads a UTF-8 CSV (with BOM) for the selected month, including the account of each movement and intra-month transfers labelled as such (never as income or expenses).
 
 ### PWA details
 
 - `manifest.webmanifest` uses `display: "standalone"`, emerald/dark branding and an SVG icon with `"purpose": "any maskable"`.
-- `sw.js` pre-caches the app shell under `clearwallet-v1.2.1`, uses **Network-First for HTML**, cache-first for same-origin assets, and stale-while-revalidate for external assets such as fonts.
+- `sw.js` pre-caches the app shell under `clearwallet-v1.5.0`, uses **Network-First for HTML**, cache-first for same-origin assets, and stale-while-revalidate for external assets such as fonts.
 - Old `clearwallet-` caches are removed on activation; the service worker calls `self.skipWaiting()` and `self.clients.claim()`.
 - `app.js` listens for `controllerchange` and reloads once so the new version is shown immediately.
 

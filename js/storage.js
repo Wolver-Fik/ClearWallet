@@ -5,15 +5,19 @@
   var KEY = 'clearwallet-v1';
   var LEGACY_KEY = 'plata-al-dia-v1';
 
-  /* ---------- Capa IndexedDB (Etapa 1) ----------
+  /* ---------- Capa IndexedDB (Etapas 1 y 2) ----------
      IndexedDB pasa a ser el almacen principal; localStorage sigue siendo el
      espejo sincrono que consume app.js. Los archivos van al store 'files',
-     fuera del limite de 5 MB de localStorage. */
+     fuera del limite de 5 MB de localStorage. En la Etapa 2 se anaden los
+     stores 'accounts' y 'transfers' para migrar las billeteras y las
+     transferencias internas sin perder el historico existente. */
   var DB_NAME = 'clearwallet_db';
-  var DB_VERSION = 1;
-  var SCHEMA_VERSION = 2;
+  var DB_VERSION = 2;
+  var SCHEMA_VERSION = 3;
   var STORE_STATE = 'state';
   var STORE_FILES = 'files';
+  var STORE_ACCOUNTS = 'accounts';
+  var STORE_TRANSFERS = 'transfers';
   var STATE_KEY = 'main';
   var MIRROR_KEYS = [KEY, LEGACY_KEY, 'clearwallet-lang-v1'];
   var dbPromise = null, idbReady = false, idbFailed = false, pendingWrite = false;
@@ -24,10 +28,17 @@
     dbPromise = new Promise(function (resolve, reject) {
       if (!('indexedDB' in global)) { reject(new Error('IndexedDB no disponible')); return; }
       var req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = function () {
+      req.onupgradeneeded = function (e) {
         var db = req.result;
-        if (!db.objectStoreNames.contains(STORE_STATE)) db.createObjectStore(STORE_STATE);
-        if (!db.objectStoreNames.contains(STORE_FILES)) db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+        var old = e.oldVersion || 0;
+        if (old < 1) {
+          if (!db.objectStoreNames.contains(STORE_STATE)) db.createObjectStore(STORE_STATE);
+          if (!db.objectStoreNames.contains(STORE_FILES)) db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+        }
+        if (old < 2) {
+          if (!db.objectStoreNames.contains(STORE_ACCOUNTS)) db.createObjectStore(STORE_ACCOUNTS, { keyPath: 'id' });
+          if (!db.objectStoreNames.contains(STORE_TRANSFERS)) db.createObjectStore(STORE_TRANSFERS, { keyPath: 'id' });
+        }
       };
       req.onsuccess = function () { idbReady = true; resolve(req.result); };
       req.onerror = function () { idbFailed = true; reject(req.error || new Error('No se pudo abrir IndexedDB')); };
@@ -58,6 +69,9 @@
   function idbDelete(store, key) {
     return idbOpen().then(function (db) { return idbRequest(db, store, 'readwrite', function (os) { return os.delete(key); }) });
   }
+  function idbClear(store) {
+    return idbOpen().then(function (db) { return idbRequest(db, store, 'readwrite', function (os) { return os.clear(); }) });
+  }
   function localSnapshot() {
     var snap = {};
     try { MIRROR_KEYS.forEach(function (k) { var v = localStorage.getItem(k); if (v !== null) snap[k] = v; }); } catch (e) {}
@@ -70,36 +84,168 @@
       });
     } catch (e) {}
   }
+
+  /* ---------- Etapa 2: migration of accounts and transfers ---------- */
+  function r2(n) { return Math.round(n * 100) / 100; }
+  function today() { return new Date().toISOString().slice(0, 10); }
+
+  function mainAccount(cur) {
+    return {
+      id: 'acc-main', name: 'Main', type: 'cash',
+      cur: (typeof cur === 'string' && cur) ? cur : 'USD', initial: 0, color: '#8aa4ff'
+    };
+  }
+
+  function normAccount(a) {
+    if (!a || typeof a !== 'object') return null;
+    var id = String(a.id || '');
+    if (!id) return null;
+    var cur = String(a.cur || a.currency || '').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(cur)) cur = 'USD';
+    var types = ['cash', 'bank', 'card', 'savings', 'other', 'custom'];
+    var type = types.indexOf(a.type) >= 0 ? a.type : 'other';
+    var initial = Number(a.initial != null ? a.initial : a.balance);
+    return {
+      id: id.slice(0, 40),
+      name: String(a.name != null ? a.name : '').trim().slice(0, 40) || 'Main',
+      type: type,
+      cur: cur,
+      initial: isFinite(initial) ? r2(initial) : 0,
+      color: /^#[0-9a-f]{6}$/i.test(a.color) ? a.color : '#8aa4ff'
+    };
+  }
+
+  function normTransfer(x) {
+    if (!x || typeof x !== 'object') return null;
+    var a = Number(x.a != null ? x.a : x.amount);
+    var rate = Number(x.rate != null ? x.rate : 1);
+    var d = String(x.d || x.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) d = today();
+    var from = String(x.from || ''), to = String(x.to || '');
+    if (!(a > 0) || !from || !to || from === to) return null;
+    return {
+      id: String(x.id || ('xf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5))).slice(0, 40),
+      from: from, to: to, a: r2(a),
+      rate: (isFinite(rate) && rate > 0) ? rate : 1,
+      d: d, n: String(x.n || x.note || '').trim().slice(0, 60)
+    };
+  }
+
+  /* Convierte cualquier estado v1/v2 al esquema v3. Las transferencias
+     heredadas como movimientos 'x' se consolidan en su propio array y se
+     quitan del historial para que nunca afecten a ingresos ni gastos. */
+  function migrateData(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+    var cfg = (raw.cfg && typeof raw.cfg === 'object' && !Array.isArray(raw.cfg)) ? raw.cfg : {};
+    var months = (raw.months && typeof raw.months === 'object' && !Array.isArray(raw.months)) ? raw.months : {};
+    var rawAccounts = Array.isArray(raw.accounts) ? raw.accounts : (Array.isArray(cfg.accounts) ? cfg.accounts : null);
+    var rawTransfers = Array.isArray(raw.transfers) ? raw.transfers : (Array.isArray(cfg.transfers) ? cfg.transfers : []);
+    var accounts = (rawAccounts || []).map(normAccount).filter(Boolean);
+    if (!accounts.length) accounts = [mainAccount(cfg.cur)];
+    var ids = {};
+    accounts.forEach(function (a) { ids[a.id] = 1; });
+    var fallback = accounts[0].id;
+    var transfers = rawTransfers.map(normTransfer).filter(Boolean);
+    var seen = {};
+    transfers.forEach(function (x) {
+      if (!ids[x.from]) x.from = fallback;
+      if (!ids[x.to]) x.to = fallback;
+      seen[x.id] = 1;
+    });
+    var outMonths = {};
+    Object.keys(months).forEach(function (k) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(k) || !Array.isArray(months[k])) return;
+      outMonths[k] = [];
+      months[k].forEach(function (tx) {
+        if (!tx || typeof tx !== 'object') return;
+        if (tx.t === 'x') {
+          var id = String(tx.xid || tx.id || '');
+          if (id && seen[id]) return;
+          var from = String(tx.f || tx.from || fallback), to = String(tx.to || fallback);
+          var amt = Number(tx.a), rate = Number(tx.rate);
+          if (!(amt > 0) || !ids[from] || !ids[to] || from === to) return;
+          id = id || ('xf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+          seen[id] = 1;
+          transfers.push({
+            id: id, from: from, to: to, a: r2(amt),
+            rate: (isFinite(rate) && rate > 0) ? rate : 1,
+            d: /^\d{4}-\d{2}-\d{2}$/.test(tx.d) ? tx.d : (k + '-01'),
+            n: String(tx.n || '').slice(0, 60)
+          });
+          return;
+        }
+        if (!tx.acc || !ids[tx.acc]) tx.acc = fallback;
+        outMonths[k].push(tx);
+      });
+    });
+    if (cfg.accounts !== undefined || cfg.transfers !== undefined) {
+      cfg = Object.assign({}, cfg);
+      delete cfg.accounts;
+      delete cfg.transfers;
+    }
+    return { cfg: cfg, months: outMonths, accounts: accounts, transfers: transfers };
+  }
+
   function writeIDB(data) {
     writeChain = writeChain.then(function () {
-      return idbPut(STORE_STATE, STATE_KEY, {
-        schemaVersion: SCHEMA_VERSION, app: 'clearwallet', data: data,
-        localStorage: localSnapshot(), updatedAt: new Date().toISOString()
+      return idbOpen().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction([STORE_STATE, STORE_ACCOUNTS, STORE_TRANSFERS], 'readwrite');
+          var acc = tx.objectStore(STORE_ACCOUNTS), tr = tx.objectStore(STORE_TRANSFERS);
+          acc.clear(); tr.clear();
+          (data.accounts || []).forEach(function (a) { if (a && a.id) acc.put(a); });
+          (data.transfers || []).forEach(function (x) { if (x && x.id) tr.put(x); });
+          tx.objectStore(STORE_STATE).put({
+            schemaVersion: SCHEMA_VERSION, app: 'clearwallet', data: data,
+            localStorage: localSnapshot(), updatedAt: new Date().toISOString()
+          }, STATE_KEY);
+          tx.oncomplete = function () { resolve(); };
+          tx.onerror = function () { reject(tx.error || new Error('Error de IndexedDB')); };
+          tx.onabort = function () { reject(tx.error || new Error('Transaccion abortada')); };
+        });
       });
     }).catch(function () { idbFailed = true; });
     return writeChain;
   }
+
   function initIDB() {
     if (initPromise) return initPromise;
-    initPromise = idbOpen().then(function () { return idbGet(STORE_STATE, STATE_KEY); })
-      .then(function (rec) {
-        var local = null;
-        try { local = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || 'null'); } catch (e) {}
-        if (!rec) { if (local) writeIDB(local); return; }
-        var remote = (rec.schemaVersion && rec.data) ? rec.data : rec;
-        /* Si el usuario ya guardo en esta sesion, esa escritura es la fuente
-           de verdad: no se encola una version antigua de IndexedDB. */
-        if (pendingWrite) return;
-        if (!local || (remote && remote.cfg && (!local.cfg || !hasData(local)))) {
-          // IndexedDB tenia datos que localStorage ya no tenia: se restauran.
-          try { localStorage.setItem(KEY, JSON.stringify(remote)); } catch (e) {}
-          writeIDB(remote);
-        } else writeIDB(local);
-      }).catch(function () { idbFailed = true; });
+    initPromise = idbOpen().then(function () {
+      return Promise.all([
+        idbGet(STORE_STATE, STATE_KEY),
+        idbGetAll(STORE_ACCOUNTS),
+        idbGetAll(STORE_TRANSFERS)
+      ]);
+    }).then(function (res) {
+      var rec = res[0], storedAccounts = res[1] || [], storedTransfers = res[2] || [];
+      var local = null;
+      try { local = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || 'null'); } catch (e) {}
+      var remote = rec ? ((rec.schemaVersion && rec.data) ? rec.data : rec) : null;
+      /* Si el usuario ya guardo en esta sesion, esa escritura es la fuente
+         de verdad: no se encola una version antigua de IndexedDB. */
+      if (pendingWrite) return;
+      var base = (local && hasData(local)) ? local : remote;
+      if (!base) return;
+      var data = migrateData(base);
+      if ((!data.accounts || data.accounts.length <= 1) && storedAccounts.length) data.accounts = storedAccounts;
+      if (!data.transfers.length && storedTransfers.length) data.transfers = storedTransfers;
+      data = migrateData(data);
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          app: 'clearwallet', schemaVersion: SCHEMA_VERSION, v: 3,
+          cfg: data.cfg, months: data.months, accounts: data.accounts, transfers: data.transfers
+        }));
+      } catch (e) {}
+      writeIDB(data);
+    }).catch(function () { idbFailed = true; });
     return initPromise;
   }
+
   function hasData(d) {
-    if (!d || !d.months || typeof d.months !== 'object') return false;
+    if (!d || typeof d !== 'object') return false;
+    if (Array.isArray(d.transfers) && d.transfers.length) return true;
+    if (Array.isArray(d.accounts) && d.accounts.length > 1) return true;
+    if (!d.months || typeof d.months !== 'object') return false;
     return Object.keys(d.months).some(function (k) { return Array.isArray(d.months[k]) && d.months[k].length; });
   }
   function whenReady() { return initIDB(); }
@@ -250,7 +396,7 @@
           try { localStorage.setItem(KEY, raw); } catch (e) {}
         }
       }
-      var parsed = raw ? JSON.parse(raw) : null;
+      var parsed = raw ? migrateData(JSON.parse(raw)) : null;
       /* Migracion automatica localStorage -> IndexedDB (sin perder registros). */
       initIDB();
       return parsed;
@@ -261,12 +407,16 @@
   }
 
   function save(state) {
-    var payload = { cfg: state.cfg, months: state.months || {} };
+    var payload = migrateData({
+      cfg: state.cfg, months: state.months || {},
+      accounts: state.accounts || [], transfers: state.transfers || []
+    });
     var ok;
     try {
       localStorage.setItem(KEY, JSON.stringify({
-        app: 'clearwallet', schemaVersion: SCHEMA_VERSION, v: 2,
-        cfg: payload.cfg, months: payload.months
+        app: 'clearwallet', schemaVersion: SCHEMA_VERSION, v: 3,
+        cfg: payload.cfg, months: payload.months,
+        accounts: payload.accounts, transfers: payload.transfers
       }));
       ok = true;
     } catch (e) {
@@ -281,6 +431,8 @@
     try { localStorage.removeItem(KEY); } catch (e) {}
     try { localStorage.removeItem(LEGACY_KEY); } catch (e) {}
     idbDelete(STORE_STATE, STATE_KEY).catch(function () {});
+    idbClear(STORE_ACCOUNTS).catch(function () {});
+    idbClear(STORE_TRANSFERS).catch(function () {});
   }
 
   /* ---------- downloads ---------- */
@@ -307,10 +459,12 @@
     var payload = {
       app: 'ClearWallet',
       schemaVersion: SCHEMA_VERSION,
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       cfg: state.cfg,
-      months: state.months || {}
+      months: state.months || {},
+      accounts: state.accounts || [],
+      transfers: state.transfers || []
     };
     download('clearwallet-backup-' + stamp() + '.json', JSON.stringify(payload, null, 2), 'application/json');
   }
@@ -330,12 +484,26 @@
     if (!data.cfg || typeof data.cfg !== 'object' || Array.isArray(data.cfg)) {
       return { ok: false, msgText: 'El respaldo está dañado: falta la configuración.' };
     }
-    var markers = ['cur', 'cats', 'recurring', 'debts', 'rates', 'saveTarget', 'goal'];
-    if (!markers.some(function (k) { return Object.prototype.hasOwnProperty.call(data.cfg, k); })) {
+    var markers = ['cur', 'cats', 'recurring', 'debts', 'rates', 'saveTarget', 'goal', 'accounts', 'transfers'];
+    var known = markers.some(function (k) { return Object.prototype.hasOwnProperty.call(data.cfg, k); }) ||
+      Array.isArray(data.accounts) || Array.isArray(data.transfers);
+    if (!known) {
       return { ok: false, msgText: 'El respaldo está incompleto: la configuración no es reconocible.' };
     }
     if (data.months !== undefined && (typeof data.months !== 'object' || Array.isArray(data.months))) {
       return { ok: false, msgText: 'El respaldo está dañado: el historial no es válido.' };
+    }
+    /* Etapa 2: cuentas y transferencias pueden venir en la raiz (v3) o
+       anidadas en cfg (versiones preliminares); ambas son aceptadas. */
+    var accounts = Array.isArray(data.accounts) ? data.accounts :
+      ((data.cfg && Array.isArray(data.cfg.accounts)) ? data.cfg.accounts : null);
+    var transfers = Array.isArray(data.transfers) ? data.transfers :
+      ((data.cfg && Array.isArray(data.cfg.transfers)) ? data.cfg.transfers : null);
+    if (accounts && accounts.some(function (a) { return !a || typeof a !== 'object' || !a.id; })) {
+      return { ok: false, msgText: 'El respaldo está dañado: las cuentas no son válidas.' };
+    }
+    if (transfers && transfers.some(function (x) { return !x || typeof x !== 'object' || !x.from || !x.to; })) {
+      return { ok: false, msgText: 'El respaldo está dañado: las transferencias no son válidas.' };
     }
     return { ok: true, version: sv };
   }
@@ -398,9 +566,11 @@
     readBackup: readBackup,
     validateBackup: validateBackup,
     exportCsv: exportCsv,
-    /* Etapa 1: almacenamiento durable y sin limite de 5 MB */
+    /* Etapas 1 y 2: almacenamiento durable y sin limite de 5 MB */
     DB_NAME: DB_NAME,
+    DB_VERSION: DB_VERSION,
     SCHEMA_VERSION: SCHEMA_VERSION,
+    migrateData: migrateData,
     whenReady: whenReady,
     isIndexedDBReady: function () { return idbReady && !idbFailed; },
     putFile: putFile,

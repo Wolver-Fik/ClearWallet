@@ -368,3 +368,40 @@ Object.assign(window.CWI18N.ja, {
     missing: 'まずこの通貨ペアのレートを設定してください。'
   }
 });
+
+Object.assign(window.CWI18N.ja.views, { accounts: '口座' });
+Object.assign(window.CWI18N.ja.add, { accountLabel: '口座' });
+Object.assign(window.CWI18N.ja.list, { accountFilter: '口座', allAccounts: 'すべての口座' });
+Object.assign(window.CWI18N.ja.csv, {
+  account: '口座', currency: '通貨', original: '元の金額', destination: '受取額'
+});
+Object.assign(window.CWI18N.ja, {
+  accounts: {
+    title: '口座とウォレット', sub: '残高と内部振替',
+    new: '新しい口座', edit: '口座を編集', main: 'メイン口座',
+    cash: '現金', bank: '銀行', card: 'カード', savings: '貯金', other: 'その他', custom: 'カスタム',
+    unknown: '不明な口座',
+    name: '口座名', namePh: '例：普通預金、現金',
+    type: '口座の種類', currency: '通貨', initial: '初期残高', color: '色',
+    save: '口座を保存', formHint: '初期残高はこの口座の取引に加算されます。振替は収入でも支出でもありません。',
+    nameError: '口座名を入力してください', initialError: '有効な初期残高を入力してください',
+    lastError: '口座は1つ以上必要です', created: '口座を作成しました', updated: '口座を更新しました', deleted: '口座を削除しました',
+    editAria: '{name}を編集', deleteAria: '{name}を削除', deleteConfirm: '削除しますか？',
+    total: '合計残高', totalSub: '{n}件の口座',
+    initialShort: '初期', incomeShort: '収入', expensesShort: '支出',
+    unconverted: { other: '{n}件の口座はレート未設定' },
+    rateMissing: 'この通貨のレートがないため1:1を使用します'
+  },
+  transfer: {
+    title: '口座間の振替', short: '振替', new: '新しい振替',
+    from: '振替元', to: '振替先', amount: '金額', rate: '換算レート', date: '日付',
+    note: 'メモ（任意）', notePh: '例：貯金、現金…', save: '振替える', cancel: 'キャンセル',
+    hint: '口座間で資金を移動します。収入や支出には一切計上されません。',
+    rateHint: '1 {from} = レート {to}', sameCurHint: '同じ通貨：レートは1に固定',
+    history: '内部振替', listSub: '収入・支出には計上されません', empty: '振替はまだありません。',
+    needTwo: '振替には2つ以上の口座が必要です', sameError: '異なる口座を選択してください',
+    amountError: '0より大きい金額を入力してください', rateError: '0より大きいレートを入力してください',
+    added: '振替を追加しました：{amount}', deleted: '振替を削除しました', deleteAria: '振替を削除',
+    csvType: '振替', demoSavings: '毎月の貯金', demoCash: '現金の補充'
+  }
+});

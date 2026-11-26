@@ -371,3 +371,40 @@ Object.assign(window.CWI18N.ru, {
     missing: 'Сначала задайте курс для этой пары.'
   }
 });
+
+Object.assign(window.CWI18N.ru.views, { accounts: 'Счета' });
+Object.assign(window.CWI18N.ru.add, { accountLabel: 'Счёт' });
+Object.assign(window.CWI18N.ru.list, { accountFilter: 'Счёт', allAccounts: 'Все счета' });
+Object.assign(window.CWI18N.ru.csv, {
+  account: 'Счёт', currency: 'Валюта', original: 'Исходная сумма', destination: 'Получено на счёте'
+});
+Object.assign(window.CWI18N.ru, {
+  accounts: {
+    title: 'Счета и кошельки', sub: 'Балансы и внутренние переводы',
+    new: 'Новый счёт', edit: 'Изменить счёт', main: 'Основной счёт',
+    cash: 'Наличные', bank: 'Банк', card: 'Карта', savings: 'Сбережения', other: 'Другое', custom: 'Своё',
+    unknown: 'Неизвестный счёт',
+    name: 'Название счёта', namePh: 'напр. Текущий счёт, Наличные',
+    type: 'Тип счёта', currency: 'Валюта', initial: 'Начальный баланс', color: 'Цвет',
+    save: 'Сохранить счёт', formHint: 'Начальный баланс добавляется к операциям счёта. Переводы никогда не учитываются как доход или расход.',
+    nameError: 'Введите название счёта', initialError: 'Введите корректный начальный баланс',
+    lastError: 'Нужен хотя бы один счёт', created: 'Счёт создан', updated: 'Счёт обновлён', deleted: 'Счёт удалён',
+    editAria: 'Изменить {name}', deleteAria: 'Удалить {name}', deleteConfirm: 'Удалить?',
+    total: 'Общий баланс', totalSub: '{n} счетов',
+    initialShort: 'Начало', incomeShort: 'Доходы', expensesShort: 'Расходы',
+    unconverted: { one: '{n} счёт без курса', few: '{n} счёта без курса', many: '{n} счетов без курса', other: '{n} счёта без курса' },
+    rateMissing: 'Нет курса для этой валюты; используется 1:1'
+  },
+  transfer: {
+    title: 'Перевод между счетами', short: 'Перевести', new: 'Новый перевод',
+    from: 'Счёт источник', to: 'Счёт назначения', amount: 'Сумма', rate: 'Курс конвертации', date: 'Дата',
+    note: 'Заметка (необязательно)', notePh: 'напр. сбережения, наличные…', save: 'Перевести', cancel: 'Отмена',
+    hint: 'Перемещает деньги между вашими счетами. Никогда не учитывается как доход или расход.',
+    rateHint: '1 {from} = курс {to}', sameCurHint: 'Одна валюта: курс равен 1',
+    history: 'Внутренние переводы', listSub: 'Не учитываются как доход или расход', empty: 'Переводов пока нет.',
+    needTwo: 'Создайте минимум два счёта для перевода', sameError: 'Выберите два разных счёта',
+    amountError: 'Введите сумму больше нуля', rateError: 'Введите курс больше нуля',
+    added: 'Перевод добавлен: {amount}', deleted: 'Перевод удалён', deleteAria: 'Удалить перевод',
+    csvType: 'Перевод', demoSavings: 'Месячные сбережения', demoCash: 'Пополнение наличных'
+  }
+});

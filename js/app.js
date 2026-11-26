@@ -8,6 +8,8 @@
   var LANG_KEY = 'clearwallet-lang-v1';
   var DEFAULT_EXP_IDS = ['viv', 'srv', 'sup', 'trn', 'sal', 'ocio', 'sus', 'com', 'otr'];
   var INCOME_IDS = ['sueldo', 'free', 'otri'];
+  var ACCOUNT_TYPES = ['cash', 'bank', 'card', 'savings', 'other', 'custom'];
+  var ACC_COLORS = ['#8aa4ff', '#6ee7f9', '#58e0b0', '#f4c15e', '#ff7b8a', '#c084fc'];
   var DEMO_BUD = { viv: 650, srv: 160, sup: 380, trn: 160, sal: 80, ocio: 200, sus: 40, com: 120, otr: 60 };
   var DEMO_TX = [
     [1, 'i', 'sueldo', 2400, 'salary', 0], [2, 'g', 'viv', 650, 'rent', 0], [3, 'g', 'srv', 140, 'utilities', 0],
@@ -237,9 +239,11 @@
 
   /* ---------- config and data ---------- */
   var S = {
-    cfg: null, months: {}, viewYM: TODAY_YM, view: 'overview', demo: true, type: 'g', cat: null,
-    hor: false, filter: 'all', query: '', limit: 60, confirmDel: null, confirmReset: false,
-    openSettings: false, openAdd: false, editTx: null, recDraft: null, debtDraft: null, fxDraft: null
+    cfg: null, months: {}, accounts: [], transfers: [], viewYM: TODAY_YM, view: 'overview', demo: true, type: 'g', cat: null,
+    hor: false, filter: 'all', accountFilter: 'all', query: '', limit: 60, confirmDel: null, confirmDelAcc: null, confirmReset: false,
+    openSettings: false, openAdd: false, openAcc: false, openXf: false,
+    editTx: null, recDraft: null, debtDraft: null, fxDraft: null,
+    addAcc: '', accDraft: null, editAccount: null, xfDraft: null
   };
   var demoCache = null;
 
@@ -261,6 +265,120 @@
       debtAutoTx: true
     };
   }
+  /* ---------- accounts & internal transfers (Etapa 2) ---------- */
+  function mainAcc(cur) {
+    return {
+      id: 'acc-main', name: t('accounts.main'), type: 'cash',
+      cur: cur || getCfg().cur, initial: 0, color: ACC_COLORS[0]
+    };
+  }
+  function isDefaultAccName(name) {
+    return ['Main', 'Main account', 'Principal', 'Cuenta principal', 'Conta principal',
+      'Compte principal', 'Conto principale', 'Hauptkonto', 'Konto',
+      'Основной', 'Основной счёт', 'メイン', 'メイン口座'].indexOf(String(name || '')) >= 0;
+  }
+  function normAccounts(raw, cur) {
+    var out = [], seen = {};
+    (Array.isArray(raw) ? raw : []).forEach(function (a) {
+      if (!a || typeof a !== 'object') return;
+      var id = String(a.id || '');
+      if (!id || seen[id]) return;
+      var c = String(a.cur || a.currency || '').toUpperCase();
+      if (!/^[A-Z]{3}$/.test(c)) c = cur || getCfg().cur;
+      var name = String(a.name != null ? a.name : '').trim().slice(0, 40);
+      if (!name || isDefaultAccName(name)) name = t('accounts.main');
+      var init = Number(a.initial != null ? a.initial : a.balance);
+      out.push({
+        id: id.slice(0, 40), name: name,
+        type: ACCOUNT_TYPES.indexOf(a.type) >= 0 ? a.type : 'other',
+        cur: c, initial: isFinite(init) ? r2(init) : 0,
+        color: /^#[0-9a-f]{6}$/i.test(a.color) ? a.color : ACC_COLORS[out.length % ACC_COLORS.length]
+      });
+      seen[id] = 1;
+    });
+    if (!out.length) out.push(mainAcc(cur));
+    return out;
+  }
+  function normTransfers(raw, accounts) {
+    var ids = {}, out = [], seen = {};
+    accounts.forEach(function (a) { ids[a.id] = 1; });
+    (Array.isArray(raw) ? raw : []).forEach(function (x) {
+      if (!x || typeof x !== 'object') return;
+      var from = String(x.from || ''), to = String(x.to || '');
+      var a = Number(x.a != null ? x.a : x.amount), rate = Number(x.rate != null ? x.rate : 1);
+      var d = String(x.d || x.date || '');
+      var id = String(x.id || '');
+      if (!(a > 0) || !ids[from] || !ids[to] || from === to || (id && seen[id])) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) d = TODAY_ISO;
+      id = id || ('xf' + uid());
+      seen[id] = 1;
+      out.push({
+        id: id.slice(0, 40), from: from, to: to, a: r2(a),
+        rate: (isFinite(rate) && rate > 0) ? rate : 1,
+        d: d, n: String(x.n || x.note || '').trim().slice(0, 60)
+      });
+    });
+    return out;
+  }
+  function getAccounts() { return S.demo ? demoAccounts() : S.accounts; }
+  function getTransfers() { return S.demo ? demoTransfers() : S.transfers; }
+  function accById(id, list) {
+    var a = (list || getAccounts()).find(function (x) { return x.id === id; });
+    return a || null;
+  }
+  function accName(id) {
+    var a = accById(id);
+    return a ? a.name : t('accounts.unknown');
+  }
+  function accCur(id) {
+    var a = accById(id);
+    return a ? a.cur : getCfg().cur;
+  }
+  function moneyAcc(n, cur) { return moneyCur(n, cur || getCfg().cur); }
+  function balanceTx() {
+    var yms = S.demo ? [0, 1, 2, 3, 4, 5].map(function (i) { return addMonths(TODAY_YM, -i); }) : Object.keys(S.months);
+    var out = [];
+    yms.forEach(function (ym) { getTx(ym).forEach(function (x) { out.push(x); }); });
+    return out;
+  }
+  function accountBalance(a) {
+    if (!a) return 0;
+    var b = a.initial || 0;
+    balanceTx().forEach(function (x) {
+      if (x.acc !== a.id) return;
+      b += x.t === 'i' ? x.a : -x.a;
+    });
+    getTransfers().forEach(function (x) {
+      if (x.from === a.id) b -= x.a;
+      if (x.to === a.id) b += x.a * x.rate;
+    });
+    return r2(b);
+  }
+  function consolidatedBalance() {
+    var base = getCfg().cur, total = 0, missing = 0;
+    getAccounts().forEach(function (a) {
+      var r = fxRate(a.cur, base);
+      if (r == null && a.cur !== base) { missing++; r = 1; }
+      total += accountBalance(a) * r;
+    });
+    return { total: r2(total), missing: missing };
+  }
+  function normalizeState(raw) {
+    var d = Storage.migrateData(raw || {});
+    d.cfg = normCfg(d.cfg);
+    d.months = sanitizeMonths(d.months);
+    d.accounts = normAccounts(d.accounts, d.cfg.cur);
+    d.transfers = normTransfers(d.transfers, d.accounts);
+    var main = d.accounts[0].id;
+    var valid = {};
+    d.accounts.forEach(function (a) { valid[a.id] = 1; });
+    d.cfg.recurring.forEach(function (r) { if (!valid[r.acc]) r.acc = main; });
+    Object.keys(d.months).forEach(function (k) {
+      d.months[k].forEach(function (tx) { if (!valid[tx.acc]) tx.acc = main; });
+    });
+    return d;
+  }
+
   function posNum(n) {
     n = Number(n);
     return isFinite(n) && n > 0 ? n : 0;
@@ -279,7 +397,8 @@
         amount: r2(amount),
         day: clamp(day, 1, 31),
         cat: String(r.cat != null ? r.cat : (r.c || '')),
-        type: r.type === 'i' ? 'i' : 'g'
+        type: r.type === 'i' ? 'i' : 'g',
+        acc: String(r.acc || r.account || '')
       };
     }).filter(Boolean);
   }
@@ -351,7 +470,8 @@
     if (!isFinite(a) || !(a > 0)) return null;
     return {
       id: String(tx.id), t: tx.t, a: a, c: String(tx.c || ''), n: String(tx.n || '').slice(0, 60),
-      d: tx.d.slice(0, 10), h: tx.h ? 1 : 0, r: tx.r ? String(tx.r).slice(0, 40) : ''
+      d: tx.d.slice(0, 10), h: tx.h ? 1 : 0, r: tx.r ? String(tx.r).slice(0, 40) : '',
+      acc: String(tx.acc || ''), cur: String(tx.cur || ''), orig: Number(tx.orig) > 0 ? r2(Number(tx.orig)) : 0
     };
   }
   function validYM(ym) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(ym); }
@@ -394,7 +514,43 @@
       rates: cur !== 'USD' ? { ['USD>' + cur]: k } : {},
       debtAutoTx: true
     };
+    demoCache.recurring.forEach(function (r) { r.acc = demoAccountFor(r.cat); });
     return demoCache;
+  }
+
+  function demoAccounts() {
+    var cur = getCfg().cur, k = scaleFor(cur);
+    return [
+      { id: 'da-cash', name: t('accounts.cash'), type: 'cash', cur: cur, initial: nice(180 * k), color: ACC_COLORS[2] },
+      { id: 'da-bank', name: t('accounts.bank'), type: 'bank', cur: cur, initial: nice(1200 * k), color: ACC_COLORS[0] },
+      { id: 'da-card', name: t('accounts.card'), type: 'card', cur: cur, initial: nice(-250 * k), color: ACC_COLORS[3] },
+      { id: 'da-save', name: t('accounts.savings'), type: 'savings', cur: 'USD', initial: nice(3200), color: ACC_COLORS[1] }
+    ];
+  }
+  function demoTransfers() {
+    var cur = getCfg().cur, k = scaleFor(cur);
+    var toUsd = fxRate(cur, 'USD') == null ? 1 : fxRate(cur, 'USD');
+    var dayA = pad(clamp(NOW.getDate(), 1, 10)), dayB = pad(clamp(NOW.getDate(), 1, 15));
+    return [
+      {
+        id: 'dt-save', from: 'da-bank', to: 'da-save', a: nice(300 * k), rate: r2(toUsd),
+        d: TODAY_YM + '-' + dayA, n: t('transfer.demoSavings')
+      },
+      {
+        id: 'dt-cash', from: 'da-cash', to: 'da-bank', a: nice(80 * k), rate: 1,
+        d: TODAY_YM + '-' + dayB, n: t('transfer.demoCash')
+      },
+      {
+        id: 'dt-prev', from: 'da-bank', to: 'da-cash', a: nice(50 * k), rate: 1,
+        d: addMonths(TODAY_YM, -1) + '-12', n: ''
+      }
+    ];
+  }
+  function demoAccountFor(cat) {
+    if (cat === 'sueldo' || cat === 'viv' || cat === 'srv') return 'da-bank';
+    if (cat === 'sus' || cat === 'com') return 'da-card';
+    if (cat === 'sup' || cat === 'ocio') return 'da-cash';
+    return 'da-bank';
   }
   function demoTx(ym) {
     if (ym > TODAY_YM) return [];
@@ -410,6 +566,7 @@
       out.push({
         id: 'd' + ym + i, t: r[1], a: nice(r[3] * k * (isInc ? 1 : f)) || 1,
         c: r[2], n: known ? t('note.' + r[4]) : r[4], d: ym + '-' + pad(day), h: r[5],
+        acc: demoAccountFor(r[2]), cur: S.cfg.cur, orig: 0,
         r: (isInc && r[2] === 'sueldo') ? 'dr-sueldo' : (isInc && r[2] === 'free') ? 'dr-free' : ''
       });
     });
@@ -497,7 +654,9 @@
   function recActionLabel(rec) { return rec.type === 'i' ? t('add.incomeBtn') : t('fixed.payNow'); }
 
   /* ---------- persistence ---------- */
-  function lsSave() { if (!S.demo) Storage.save({ cfg: S.cfg, months: S.months }); }
+  function lsSave() {
+    if (!S.demo) Storage.save({ cfg: S.cfg, months: S.months, accounts: S.accounts, transfers: S.transfers });
+  }
   function persistCfg() { lsSave(); }
   function persistMonth() { lsSave(); }
 
@@ -505,6 +664,8 @@
      fall back to the enriched demo so the donut and evolution curve are full. */
   function storedHasData(stored) {
     if (!stored || !stored.cfg) return false;
+    if (Array.isArray(stored.transfers) && stored.transfers.length) return true;
+    if (Array.isArray(stored.accounts) && stored.accounts.length > 1) return true;
     var cfg = normCfg(stored.cfg);
     if (cfg.recurring && cfg.recurring.length) return true;
     var months = sanitizeMonths(stored.months);
@@ -515,11 +676,11 @@
   }
 
   function recDraft() {
-    if (!S.recDraft) S.recDraft = { name: '', amount: '', day: '', cat: '', type: 'g' };
+    if (!S.recDraft) S.recDraft = { name: '', amount: '', day: '', cat: '', type: 'g', acc: '' };
     return S.recDraft;
   }
   function captureRecForm() {
-    var n = $('#rec-name'), a = $('#rec-amt'), d = $('#rec-day'), c = $('#rec-cat'), ty = $('#rec-type');
+    var n = $('#rec-name'), a = $('#rec-amt'), d = $('#rec-day'), c = $('#rec-cat'), ty = $('#rec-type'), ac = $('#rec-acc');
     if (!n || !a || !d) return;
     var dr = recDraft();
     dr.name = n.value;
@@ -527,6 +688,7 @@
     dr.day = d.value;
     dr.type = ty && ty.value === 'i' ? 'i' : 'g';
     if (c) dr.cat = c.value;
+    if (ac) dr.acc = ac.value;
   }
 
   function isDefaultCatName(id, name) {
@@ -567,7 +729,7 @@
   }
 
   function setView(v) {
-    if (['overview', 'movements', 'fixed', 'goals', 'debts'].indexOf(v) < 0) v = 'overview';
+    if (['overview', 'accounts', 'movements', 'fixed', 'goals', 'debts'].indexOf(v) < 0) v = 'overview';
     S.view = v;
     var dash = $('#dashboard');
     if (dash) dash.setAttribute('data-view', v);
@@ -580,6 +742,7 @@
     /* The debts card renders a compact summary in Overview and the full
        editor in its own tab, so it must refresh when the view changes. */
     if (S.cfg) renderDebts();
+    if (v === 'accounts') renderAccounts();
   }
 
   function setLang(lang) {
@@ -592,11 +755,16 @@
     syncTypeUI();
     if (S.cfg) {
       localizeDefaultCats();
+      if (S.accounts && S.accounts.length && isDefaultAccName(S.accounts[0].name)) {
+        S.accounts[0].name = t('accounts.main');
+      }
       if (!S.demo) lsSave();
     }
     renderAll();
     renderChips();
     if (S.openSettings) renderSettings();
+    if (S.openAcc) { captureAccForm(); renderAccountForm(); }
+    if (S.openXf) { captureXfForm(); renderTransferForm(); }
   }
 
   /* ---------- actions ---------- */
@@ -621,6 +789,13 @@
     S.demo = false;
     S.cfg = defaultCfg(cur);
     S.months = {};
+    S.accounts = [mainAcc(cur)];
+    S.transfers = [];
+    S.accountFilter = 'all';
+    S.addAcc = S.accounts[0].id;
+    S.accDraft = null;
+    S.editAccount = null;
+    S.xfDraft = null;
     demoCache = null;
     S.editTx = null;
     S.recDraft = null;
@@ -645,18 +820,25 @@
       var tx = demoTx(ym);
       if (tx.length) months[ym] = tx;
     }
-    return { cfg: cfg, months: months };
+    return { cfg: cfg, months: months, accounts: demoAccounts(), transfers: demoTransfers() };
   }
 
   function loadDemo(silent) {
     var data = demoState();
     S.cfg = data.cfg;
     S.months = data.months;
+    S.accounts = data.accounts;
+    S.transfers = data.transfers;
     S.demo = false;
     demoCache = null;
     S.viewYM = TODAY_YM;
     S.limit = 60;
     S.filter = 'all';
+    S.accountFilter = 'all';
+    S.addAcc = S.accounts[0] ? S.accounts[0].id : '';
+    S.accDraft = null;
+    S.editAccount = null;
+    S.xfDraft = null;
     S.confirmDel = null;
     S.editTx = null;
     S.recDraft = null;
@@ -686,6 +868,19 @@
     renderChips();
   }
 
+  function renderAccountSelect() {
+    var sel = $('#add-acc');
+    if (!sel) return;
+    var accs = getAccounts();
+    if (!accs.some(function (a) { return a.id === S.addAcc; })) S.addAcc = accs[0] ? accs[0].id : '';
+    sel.innerHTML = accs.map(function (a) {
+      return '<option value="' + esc(a.id) + '">' + esc(a.name + ' · ' + a.cur) + '</option>';
+    }).join('');
+    sel.value = S.addAcc;
+    var tag = $('#curtag');
+    if (tag) tag.textContent = accCur(S.addAcc);
+  }
+
   function renderChips() {
     var cfg = getCfg();
     var list = S.type === 'g' ? cfg.cats : incomeCats();
@@ -695,7 +890,7 @@
       return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-act="cat" data-id="' + esc(c.id) + '" aria-pressed="' + on + '">' +
         (S.type === 'g' ? '<i class="dot" style="background:' + catColor(c.id) + '"></i>' : '') + esc(c.name) + '</button>';
     }).join('');
-    $('#curtag').textContent = cfg.cur;
+    renderAccountSelect();
     updateIconPreview();
   }
 
@@ -713,6 +908,7 @@
     var sheet = $('#addsheet');
     if (!sheet) return;
     sheet.hidden = false;
+    renderAccountSelect();
     updateIconPreview();
     setTimeout(function () { var a = $('#amt'); if (a) a.focus(); }, 0);
   }
@@ -731,13 +927,22 @@
     if (!(amt > 0)) { box.classList.add('err'); $('#amt').focus(); toast(t('add.amountError')); return; }
     box.classList.remove('err');
     if (!S.cat) { toast(t('add.categoryError')); return; }
-    if (S.demo) startReal();
+    if (S.demo) ensureEditable();
     var date = $('#dt').value || TODAY_ISO;
     var ym = date.slice(0, 7);
+    var accSel = $('#add-acc');
+    var acc = accById(accSel ? accSel.value : S.addAcc, S.accounts);
+    if (!acc) acc = S.accounts[0];
+    var srcCur = acc ? acc.cur : getCfg().cur;
+    var base = getCfg().cur;
+    var conv = srcCur === base ? 1 : fxRate(srcCur, base);
+    if (conv == null) { conv = 1; toast(t('accounts.rateMissing')); }
+    var baseAmt = r2(amt * conv);
     var tx = {
-      id: uid(), t: S.type, a: r2(amt), c: S.cat,
+      id: uid(), t: S.type, a: baseAmt, c: S.cat,
       n: $('#note').value.trim().slice(0, 60), d: date,
-      h: S.type === 'g' && S.hor ? 1 : 0, r: ''
+      h: S.type === 'g' && S.hor ? 1 : 0, r: '',
+      acc: acc ? acc.id : '', cur: srcCur, orig: r2(amt)
     };
     if (!S.months[ym]) S.months[ym] = [];
     S.months[ym].push(tx);
@@ -777,7 +982,9 @@
     if (!tx) return;
     var amt = parseAmount($('#edit-amt').value);
     if (!(amt > 0)) { toast(t('add.amountError')); $('#edit-amt').focus(); return; }
-    tx.a = r2(amt);
+    var rate = tx.orig > 0 ? tx.a / tx.orig : 1;
+    tx.orig = r2(amt);
+    tx.a = r2(amt * rate);
     tx.n = ($('#edit-note').value || '').trim().slice(0, 60);
     S.editTx = null;
     persistMonth(S.viewYM);
@@ -805,13 +1012,15 @@
     if (!name) { toast(t('fixed.nameError')); nameEl.focus(); return; }
     if (!(amt > 0)) { toast(t('fixed.amountError')); amtEl.focus(); return; }
     if (!(day >= 1 && day <= 31)) { toast(t('fixed.dayError')); dayEl.focus(); return; }
+    var accEl = $('#rec-acc');
     var item = {
       id: uid(), name: name.slice(0, 40), amount: r2(amt),
       day: Math.round(day),
       cat: catEl ? catEl.value : (type === 'i' ? INCOME_IDS[0] : ((getCfg().cats[0] && getCfg().cats[0].id) || 'otr')),
-      type: type
+      type: type,
+      acc: accEl ? accEl.value : ''
     };
-    if (S.demo) startReal();
+    if (S.demo) ensureEditable();
     if (!S.cfg.recurring) S.cfg.recurring = [];
     S.cfg.recurring.push(item);
     persistCfg();
@@ -835,9 +1044,9 @@
     var rec = (cfg.recurring || []).find(function (r) { return r.id === id; });
     if (!rec) return;
     if (isRecPaid(rec, TODAY_YM)) { toast(t('fixed.alreadyPaid', { name: rec.name })); return; }
-    var item = { id: rec.id, name: rec.name, amount: rec.amount, day: rec.day, cat: rec.cat, type: rec.type || 'g' };
+    var item = { id: rec.id, name: rec.name, amount: rec.amount, day: rec.day, cat: rec.cat, type: rec.type || 'g', acc: rec.acc || '' };
     if (S.demo) {
-      startReal();
+      ensureEditable();
       if (!S.cfg.recurring) S.cfg.recurring = [];
       S.cfg.recurring.push(item);
       persistCfg();
@@ -847,7 +1056,8 @@
     var tx = {
       id: uid(), t: item.type === 'i' ? 'i' : 'g', a: r2(item.amount),
       c: item.cat || (item.type === 'i' ? INCOME_IDS[0] : ((S.cfg.cats[0] && S.cfg.cats[0].id) || 'otr')),
-      n: item.name.slice(0, 60), d: TODAY_ISO, h: 0, r: item.id
+      n: item.name.slice(0, 60), d: TODAY_ISO, h: 0, r: item.id,
+      acc: item.acc || (S.accounts[0] ? S.accounts[0].id : '')
     };
     if (!S.months[ym]) S.months[ym] = [];
     S.months[ym].push(tx);
@@ -863,6 +1073,8 @@
   function renderAll() {
     $('#mlabel').textContent = monthLabel(S.viewYM);
     renderDemo();
+    renderAccounts();
+    renderAccountFilter();
     renderKpis();
     renderCompare();
     renderDebts();
@@ -873,7 +1085,6 @@
     renderGoal();
     renderHistory();
     renderList();
-    $('#curtag').textContent = getCfg().cur;
   }
 
   var CURRENCY_FALLBACK = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'KRW', 'INR', 'BRL', 'ARS', 'MXN', 'CLP', 'COP', 'PEN', 'UYU', 'PYG', 'BOB', 'VES', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'TRY', 'ZAR', 'AED', 'SAR', 'ILS', 'SGD', 'HKD', 'NZD', 'THB', 'IDR', 'MYR', 'PHP', 'VND', 'EGP', 'NGN', 'KES', 'MAD', 'UAH', 'RSD', 'ISK', 'TWD', 'PKR', 'BDT', 'LKR', 'NPR'];
@@ -1448,6 +1659,11 @@
     var cats = cfg.cats.map(function (c) {
       return '<option value="' + esc(c.id) + '"' + (c.id === selCat ? ' selected' : '') + '>' + esc(c.name) + '</option>';
     }).join('');
+    var accs = getAccounts();
+    var selAcc = accs.some(function (a) { return a.id === draft.acc; }) ? draft.acc : (accs[0] ? accs[0].id : '');
+    var accOpts = accs.map(function (a) {
+      return '<option value="' + esc(a.id) + '"' + (a.id === selAcc ? ' selected' : '') + '>' + esc(a.name) + '</option>';
+    }).join('');
     var form = '<div class="recform">' +
       '<div class="wide"><label class="lab" for="rec-name">' + t('fixed.name') + '</label>' +
       '<input class="field" id="rec-name" maxlength="40" autocomplete="off" value="' + esc(draft.name) + '" placeholder="' + esc(t('fixed.namePh')) + '"></div>' +
@@ -1457,6 +1673,8 @@
       '<input class="field" id="rec-day" inputmode="numeric" autocomplete="off" value="' + esc(draft.day) + '" placeholder="1-31"></div>' +
       '<div><label class="lab" for="rec-cat">' + t('fixed.category') + '</label>' +
       '<select class="field" id="rec-cat">' + cats + '</select></div>' +
+      '<div class="wide"><label class="lab" for="rec-acc">' + t('add.accountLabel') + '</label>' +
+      '<select class="field" id="rec-acc">' + accOpts + '</select></div>' +
       '<button type="button" class="primary" data-act="add-rec">' + t('fixed.addBtn') + '</button></div>';
     var list = '';
     if (!items.length) {
@@ -1473,7 +1691,7 @@
         return '<div class="recitem">' +
           '<div class="recmain">' + getItemIcon({ n: r.name, c: r.cat, t: 'g' }) +
           '<div class="recinfo"><div class="recname">' + esc(r.name) + '</div>' +
-          '<div class="recmeta"><span class="recstatus ' + cls + '">' + esc(status) + '</span> · ' + esc(t('fixed.monthlyDay', { day: r.day })) + ' · ' + esc(catNameById(r.cat)) + '</div></div></div>' +
+          '<div class="recmeta"><span class="recstatus ' + cls + '">' + esc(status) + '</span> · ' + esc(t('fixed.monthlyDay', { day: r.day })) + ' · ' + esc(catNameById(r.cat)) + ' · ' + esc(accName(r.acc)) + '</div></div></div>' +
           '<div class="recright"><span class="recamt">' + money(r.amount, true) + '</span>' + pay + rm + '</div></div>';
       }).join('') + '</div>';
     }
@@ -1539,10 +1757,14 @@
     if (S.filter === 'g') tx = tx.filter(function (x) { return x.t.t === 'g'; });
     else if (S.filter === 'i') tx = tx.filter(function (x) { return x.t.t === 'i'; });
     else if (S.filter === 'h') tx = tx.filter(function (x) { return x.t.h; });
+    if (S.accountFilter !== 'all') {
+      var mainId = getAccounts()[0] ? getAccounts()[0].id : '';
+      tx = tx.filter(function (x) { return (x.t.acc || mainId) === S.accountFilter; });
+    }
     var q = S.query.trim().toLowerCase();
     if (q) {
       tx = tx.filter(function (x) {
-        var hay = [x.t.n, catName(x.t), x.t.d, dayLabel(x.t.d),
+        var hay = [x.t.n, catName(x.t), accName(x.t.acc), x.t.d, dayLabel(x.t.d),
           String(x.t.a), String(r2(x.t.a)), money(x.t.a), money(x.t.a, true)].join(' ').toLowerCase();
         return hay.indexOf(q) >= 0;
       });
@@ -1586,7 +1808,8 @@
           html += '<div class="tx">' + getItemIcon(x) +
             '<div class="main"><div class="t1">' + esc(x.n || catName(x)) + '</div><div class="t2">' +
             (x.h ? '<span class="tag">' + esc(t('list.microTag')) + '</span>' : '') +
-            (x.r ? '<span class="tag">' + esc(t('list.recurringTag')) + '</span>' : '') + '</div></div>' +
+            (x.r ? '<span class="tag">' + esc(t('list.recurringTag')) + '</span>' : '') +
+            (x.acc ? '<span class="tag acctag">' + esc(accName(x.acc)) + '</span>' : '') + '</div></div>' +
             '<div class="tcat">' + esc(catName(x)) + '</div>' +
             '<div class="tdate">' + esc(dayLabel(x.d)) + '</div>' +
             '<div class="amt2 ' + (inc ? 'in' : '') + '">' + (inc ? '+' : '−') + money(x.a) + '</div>' + actions + '</div>';
@@ -1768,7 +1991,8 @@
         a: r2(convert(d.amount, d.cur, S.cfg.cur)),
         c: d.dir === 'owed' ? 'otr' : 'otri',
         n: (d.name + ' · ' + t('debts.txNote')).slice(0, 60),
-        d: TODAY_ISO, h: 0, r: ('debt:' + d.id).slice(0, 40)
+        d: TODAY_ISO, h: 0, r: ('debt:' + d.id).slice(0, 40),
+        acc: S.accounts[0] ? S.accounts[0].id : ''
       };
       if (!S.months[TODAY_YM]) S.months[TODAY_YM] = [];
       S.months[TODAY_YM].push(tx);
@@ -1845,6 +2069,351 @@
     var more = compact ? '<button type="button" class="ghost upmore" data-act="view" data-view="debts">' + esc(t('debts.manage')) + '</button>' : '';
     var demoNote = S.demo ? '<p class="note">' + esc(t('settings.demoNote')) + '</p>' : '';
     el.innerHTML = head + totals + form + list + warn + more + demoNote;
+  }
+
+  /* ---------- accounts & internal transfers UI (Etapa 2) ---------- */
+  function ensureEditable() {
+    if (!S.demo) return;
+    var v = S.view;
+    loadDemo(true);
+    if (S.view !== v) setView(v);
+  }
+
+  function accountMonthTotals(a, ym) {
+    var inc = 0, exp = 0;
+    getTx(ym || S.viewYM).forEach(function (x) {
+      if (x.acc !== a.id) return;
+      if (x.t === 'i') inc += x.a; else exp += x.a;
+    });
+    return { inc: r2(inc), exp: r2(exp) };
+  }
+
+  function accountIcon(a) {
+    var svg = {
+      cash: ICON.banknote, bank: ICON.building, card: ICON.card,
+      savings: ICON.wallet, other: ICON.other, custom: ICON.other
+    }[a.type] || ICON.other;
+    return '<span class="accticon" style="color:' + esc(a.color) + '">' + svg + '</span>';
+  }
+
+  function renderAccounts() {
+    var el = $('#accounts');
+    if (!el) return;
+    var accs = getAccounts(), xfers = getTransfers();
+    var cons = consolidatedBalance();
+    var head = '<div class="accthead"><div class="accttotal"><span class="lab">' + esc(t('accounts.total')) + '</span>' +
+      '<b>' + esc(money(cons.total, true)) + '</b>' +
+      '<span class="sub">' + esc(t('accounts.totalSub', { n: accs.length })) + '</span></div>' +
+      '<div class="acctactions">' +
+      '<button type="button" class="ghost accbtn" data-act="open-transfer">' + esc(t('transfer.new')) + '</button>' +
+      (S.demo ? '' : '<button type="button" class="primary accbtn" data-act="open-account">' + esc(t('accounts.new')) + '</button>') +
+      '</div></div>';
+
+    var cards = accs.map(function (a) {
+      var bal = accountBalance(a), tot = accountMonthTotals(a);
+      var pos = accs.reduce(function (s, x) { return s + Math.max(accountBalance(x), 0); }, 0);
+      var share = pos > 0 && bal > 0 ? Math.min(bal / pos, 1) * 100 : 0;
+      var acts = S.demo ? '' :
+        '<div class="acctacts">' +
+        '<button type="button" class="icon" data-act="edit-account" data-id="' + esc(a.id) + '" aria-label="' + esc(t('accounts.editAria', { name: a.name })) + '">' +
+        '<svg viewBox="0 0 24 24"><path d="M4 20h4l10-10a2.8 2.8 0 00-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>' +
+        '<button type="button" class="icon danger' + (S.confirmDelAcc === a.id ? ' ask' : '') + '" data-act="del-account" data-id="' + esc(a.id) + '" aria-label="' + esc(S.confirmDelAcc === a.id ? t('accounts.deleteConfirm') : t('accounts.deleteAria', { name: a.name })) + '">' +
+        (S.confirmDelAcc === a.id ? esc(t('list.deleteConfirm')) : '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>') +
+        '</button></div>';
+      return '<article class="acctcard">' +
+        '<div class="accttop">' + accountIcon(a) +
+        '<div style="min-width:0"><span class="acctname">' + esc(a.name) + '</span>' +
+        '<span class="accttype">' + esc(t('accounts.' + a.type)) + '</span></div></div>' +
+        '<span class="acctbal' + (bal < 0 ? ' neg' : '') + '">' + esc(moneyAcc(bal, a.cur)) + '</span>' +
+        '<div class="acctbar"><i style="width:' + share.toFixed(1) + '%"></i></div>' +
+        '<div class="acctmeta"><span>' + esc(t('accounts.initialShort')) + ' <b>' + esc(moneyAcc(a.initial, a.cur)) + '</b></span>' +
+        '<span>' + esc(t('accounts.incomeShort')) + ' <b>+' + esc(moneyAcc(tot.inc, a.cur)) + '</b></span>' +
+        '<span>' + esc(t('accounts.expensesShort')) + ' <b>−' + esc(moneyAcc(tot.exp, a.cur)) + '</b></span></div>' + acts + '</article>';
+    }).join('');
+
+    var list = '';
+    if (!xfers.length) {
+      list = '<p class="empty">' + esc(t('transfer.empty')) + '</p>';
+    } else {
+      list = '<div class="xflist">' + xfers.slice().sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; }).map(function (x) {
+        var toAcc = accById(x.to);
+        var converted = moneyAcc(x.a * x.rate, toAcc ? toAcc.cur : getCfg().cur);
+        var del = S.demo ? '' : '<button type="button" class="icon danger xfdel" data-act="del-transfer" data-id="' + esc(x.id) + '" aria-label="' + esc(t('transfer.deleteAria')) + '">' +
+          '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>';
+        return '<div class="xfrow">' + '<span class="accticon" style="color:var(--accent2)">' + ICON.refresh + '</span>' +
+          '<span class="xfwho">' + esc(accName(x.from)) + ' → ' + esc(accName(x.to)) +
+          (x.n ? '<small>' + esc(x.n) + '</small>' : '') + '</span>' +
+          '<span class="xfamt">' + esc(moneyAcc(x.a, accCur(x.from))) +
+          '<small>→ ' + esc(converted) + '</small></span>' +
+          '<span class="xfdate">' + esc(x.d.slice(5).replace('-', '/')) + '</span>' + del + '</div>';
+      }).join('') + '</div>';
+    }
+
+    el.innerHTML = '<div class="ct">' + esc(t('accounts.title')) + '<span class="sub">' + esc(t('accounts.sub')) + '</span></div>' +
+      head + '<div class="acctgrid">' + cards + '</div>' +
+      (cons.missing ? '<p class="note">' + esc(tn('accounts.unconverted', cons.missing)) + '</p>' : '') +
+      '<div class="xftitle"><span>' + esc(t('transfer.history')) + '</span><span class="sub">' + esc(t('transfer.listSub')) + '</span></div>' +
+      list + (S.demo ? '<p class="note">' + esc(t('settings.demoNote')) + '</p>' : '');
+  }
+
+  function renderAccountFilter() {
+    var sel = $('#acfilter');
+    if (!sel) return;
+    var accs = getAccounts();
+    if (S.accountFilter !== 'all' && !accs.some(function (a) { return a.id === S.accountFilter; })) S.accountFilter = 'all';
+    sel.innerHTML = '<option value="all">' + esc(t('list.allAccounts')) + '</option>' + accs.map(function (a) {
+      return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>';
+    }).join('');
+    sel.value = S.accountFilter;
+  }
+
+  /* ---------- account editor ---------- */
+  function accDraft() {
+    if (!S.accDraft) {
+      var a = getAccounts()[0];
+      S.accDraft = { name: '', type: 'cash', cur: a ? a.cur : getCfg().cur, initial: '', color: ACC_COLORS[0] };
+    }
+    return S.accDraft;
+  }
+  function captureAccForm() {
+    var d = accDraft();
+    var map = { 'acc-name': 'name', 'acc-type': 'type', 'acc-cur': 'cur', 'acc-initial': 'initial', 'acc-color': 'color' };
+    Object.keys(map).forEach(function (id) {
+      var el = $('#' + id);
+      if (el) d[map[id]] = el.value;
+    });
+  }
+  function openAccount(id) {
+    ensureEditable();
+    S.confirmDelAcc = null;
+    if (id && accById(id, S.accounts)) {
+      var a = accById(id, S.accounts);
+      S.editAccount = a.id;
+      S.accDraft = { name: a.name, type: a.type, cur: a.cur, initial: String(a.initial), color: a.color };
+    } else {
+      S.editAccount = null;
+      var cur = S.accounts[0] ? S.accounts[0].cur : S.cfg.cur;
+      S.accDraft = { name: '', type: 'bank', cur: cur, initial: '', color: ACC_COLORS[S.accounts.length % ACC_COLORS.length] };
+    }
+    S.openAcc = true;
+    renderAccountForm();
+    $('#accsheet').hidden = false;
+    setTimeout(function () { var n = $('#acc-name'); if (n) n.focus(); }, 0);
+  }
+  function closeAccount() {
+    S.openAcc = false;
+    $('#accsheet').hidden = true;
+    var b = $('[data-act="open-account"]') || $('#gearbtn');
+    if (b) b.focus();
+  }
+  function renderAccountForm() {
+    if (!S.openAcc) return;
+    var d = accDraft();
+    var types = ['cash', 'bank', 'card', 'savings', 'other', 'custom'];
+    var opts = types.map(function (x) {
+      return '<option value="' + x + '"' + (d.type === x ? ' selected' : '') + '>' + esc(t('accounts.' + x)) + '</option>';
+    }).join('');
+    var colors = ACC_COLORS.map(function (c) {
+      return '<option value="' + c + '"' + (d.color === c ? ' selected' : '') + '>' + c + '</option>';
+    }).join('');
+    $('#acc-title').textContent = S.editAccount ? t('accounts.edit') : t('accounts.new');
+    $('#accbody').innerHTML = '<form class="accform" id="accform" novalidate>' +
+      '<div class="wide"><label class="lab" for="acc-name">' + esc(t('accounts.name')) + '</label>' +
+      '<input class="field" id="acc-name" maxlength="40" autocomplete="off" value="' + esc(d.name) + '" placeholder="' + esc(t('accounts.namePh')) + '"></div>' +
+      '<div><label class="lab" for="acc-type">' + esc(t('accounts.type')) + '</label><select class="field" id="acc-type">' + opts + '</select></div>' +
+      '<div><label class="lab" for="acc-cur">' + esc(t('accounts.currency')) + '</label><select class="field" id="acc-cur">' + currencyOptions(d.cur) + '</select></div>' +
+      '<div><label class="lab" for="acc-initial">' + esc(t('accounts.initial')) + '</label>' +
+      '<input class="field" id="acc-initial" inputmode="decimal" autocomplete="off" value="' + esc(d.initial) + '" placeholder="0"></div>' +
+      '<div><label class="lab" for="acc-color">' + esc(t('accounts.color')) + '</label><select class="field" id="acc-color">' + colors + '</select></div>' +
+      '<button type="button" class="ghost" data-act="close-account">' + esc(t('transfer.cancel')) + '</button>' +
+      '<button type="button" class="primary" data-act="save-account">' + esc(t('accounts.save')) + '</button></form>' +
+      '<p class="xfhint">' + esc(t('accounts.formHint')) + '</p>';
+  }
+  function saveAccount() {
+    captureAccForm();
+    var d = accDraft();
+    var name = String(d.name || '').trim();
+    var init = parseAmount(d.initial == '' ? '0' : d.initial);
+    if (!name) { toast(t('accounts.nameError')); var n = $('#acc-name'); if (n) n.focus(); return; }
+    if (!isFinite(init)) { toast(t('accounts.initialError')); var i = $('#acc-initial'); if (i) i.focus(); return; }
+    ensureEditable();
+    var acc = {
+      name: name.slice(0, 40),
+      type: ACCOUNT_TYPES.indexOf(d.type) >= 0 ? d.type : 'other',
+      cur: d.cur, initial: r2(init),
+      color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : ACC_COLORS[0]
+    };
+    if (S.editAccount) {
+      var cur = accById(S.editAccount, S.accounts);
+      if (!cur) { closeAccount(); return; }
+      Object.assign(cur, acc, { id: cur.id });
+      toast(t('accounts.updated'));
+    } else {
+      acc.id = 'acc' + uid();
+      S.accounts.push(acc);
+      toast(t('accounts.created'));
+    }
+    S.editAccount = null;
+    S.accDraft = null;
+    persistCfg();
+    closeAccount();
+    renderAll();
+    renderChips();
+    if (S.openSettings) renderSettings();
+  }
+  function delAccount(id) {
+    ensureEditable();
+    if (S.accounts.length <= 1) { toast(t('accounts.lastError')); return; }
+    if (S.confirmDelAcc !== id) {
+      S.confirmDelAcc = id;
+      renderAccounts();
+      setTimeout(function () { if (S.confirmDelAcc === id) { S.confirmDelAcc = null; renderAccounts(); } }, 3500);
+      return;
+    }
+    var victim = accById(id, S.accounts);
+    var fallback = S.accounts.find(function (a) { return a.id !== id; });
+    if (!victim || !fallback) return;
+    var fid = fallback.id, delCur = victim.cur;
+    S.accounts = S.accounts.filter(function (a) { return a.id !== id; });
+    Object.keys(S.months).forEach(function (ym) {
+      S.months[ym].forEach(function (tx) { if (tx.acc === id) tx.acc = fid; });
+    });
+    S.cfg.recurring.forEach(function (r) { if (r.acc === id) r.acc = fid; });
+    /* Las transferencias se reasignan a la cuenta de respaldo conservando
+       el importe recibido. Si la reasignacion las dejara entre la misma
+       cuenta, se eliminan pero se ajusta el saldo inicial del superviviente. */
+    var kept = [];
+    S.transfers.forEach(function (x) {
+      var from = x.from === id ? fid : x.from;
+      var to = x.to === id ? fid : x.to;
+      var amt = x.a, rate = x.rate;
+      var fromChanged = x.from === id, toChanged = x.to === id;
+      if (from === to) {
+        var other = accById(from, S.accounts);
+        if (other) {
+          other.initial = r2((other.initial || 0) + (fromChanged && !toChanged ? amt * rate : amt));
+        }
+        return;
+      }
+      if (fromChanged) {
+        var cv = fxRate(delCur, accCur(from));
+        if (cv != null && cv > 0) {
+          var na = r2(amt * cv);
+          if (na > 0) { rate = r2((amt * rate) / na); amt = na; }
+        }
+      }
+      if (toChanged) {
+        var cv2 = fxRate(delCur, accCur(to));
+        if (cv2 != null && cv2 > 0) rate = r2(rate * cv2);
+      }
+      kept.push({ id: x.id, from: from, to: to, a: amt, rate: rate, d: x.d, n: x.n });
+    });
+    S.transfers = kept;
+    if (S.accountFilter === id) S.accountFilter = 'all';
+    if (S.addAcc === id) S.addAcc = fid;
+    if (S.editAccount === id) { S.editAccount = null; S.accDraft = null; closeAccount(); }
+    S.confirmDelAcc = null;
+    persistCfg();
+    renderAll();
+    renderChips();
+    toast(t('accounts.deleted'));
+  }
+
+  /* ---------- internal transfer editor ---------- */
+  function xfDraft() {
+    if (!S.xfDraft) {
+      var accs = getAccounts();
+      S.xfDraft = {
+        from: accs[0] ? accs[0].id : '', to: accs[1] ? accs[1].id : (accs[0] ? accs[0].id : ''),
+        amount: '', rate: '', date: TODAY_ISO, note: ''
+      };
+    }
+    return S.xfDraft;
+  }
+  function captureXfForm() {
+    var d = xfDraft();
+    var map = { 'xf-from': 'from', 'xf-to': 'to', 'xf-amount': 'amount', 'xf-rate': 'rate', 'xf-date': 'date', 'xf-note': 'note' };
+    Object.keys(map).forEach(function (id) {
+      var el = $('#' + id);
+      if (el) d[map[id]] = el.value;
+    });
+  }
+  function openTransfer() {
+    ensureEditable();
+    if (S.accounts.length < 2) { toast(t('transfer.needTwo')); setView('accounts'); return; }
+    S.xfDraft = null;
+    var d = xfDraft();
+    var r = fxRate(accCur(d.from), accCur(d.to));
+    d.rate = accCur(d.from) === accCur(d.to) ? '1' : (r == null ? '' : String(r));
+    S.openXf = true;
+    renderTransferForm();
+    $('#xfsheet').hidden = false;
+    setTimeout(function () { var a = $('#xf-amount'); if (a) a.focus(); }, 0);
+  }
+  function closeTransfer() {
+    S.openXf = false;
+    $('#xfsheet').hidden = true;
+    var b = $('[data-act="open-transfer"]') || $('#gearbtn');
+    if (b) b.focus();
+  }
+  function renderTransferForm() {
+    if (!S.openXf) return;
+    var d = xfDraft();
+    var accs = getAccounts();
+    /* Dos selectores independientes con las mismas opciones. */
+    var fromOpts = accs.map(function (a) {
+      return '<option value="' + esc(a.id) + '"' + (a.id === d.from ? ' selected' : '') + '>' + esc(a.name + ' · ' + a.cur) + '</option>';
+    }).join('');
+    var toOpts = accs.map(function (a) {
+      return '<option value="' + esc(a.id) + '"' + (a.id === d.to ? ' selected' : '') + '>' + esc(a.name + ' · ' + a.cur) + '</option>';
+    }).join('');
+    var same = accCur(d.from) === accCur(d.to);
+    var hint = same ? t('transfer.sameCurHint') : t('transfer.rateHint', { from: accCur(d.from), to: accCur(d.to) });
+    $('#xfbody').innerHTML = '<p class="xfhint">' + esc(t('transfer.hint')) + '</p>' +
+      '<div class="accform" id="xf-form">' +
+      '<div><label class="lab" for="xf-from">' + esc(t('transfer.from')) + '</label><select class="field" id="xf-from">' + fromOpts + '</select></div>' +
+      '<div><label class="lab" for="xf-to">' + esc(t('transfer.to')) + '</label><select class="field" id="xf-to">' + toOpts + '</select></div>' +
+      '<div><label class="lab" for="xf-amount">' + esc(t('transfer.amount')) + '</label>' +
+      '<input class="field" id="xf-amount" inputmode="decimal" autocomplete="off" value="' + esc(d.amount) + '" placeholder="0"></div>' +
+      '<div><label class="lab" for="xf-rate">' + esc(t('transfer.rate')) + '</label>' +
+      '<input class="field" id="xf-rate" inputmode="decimal" autocomplete="off"' + (same ? ' readonly' : '') + ' value="' + esc(d.rate) + '" placeholder="1"></div>' +
+      '<div class="wide"><label class="lab" for="xf-date">' + esc(t('transfer.date')) + '</label>' +
+      '<input class="field" id="xf-date" type="date" value="' + esc(d.date) + '"></div>' +
+      '<div class="wide"><label class="lab" for="xf-note">' + esc(t('transfer.note')) + '</label>' +
+      '<input class="field" id="xf-note" maxlength="60" autocomplete="off" value="' + esc(d.note) + '" placeholder="' + esc(t('transfer.notePh')) + '"></div>' +
+      '<button type="button" class="ghost" data-act="close-transfer">' + esc(t('transfer.cancel')) + '</button>' +
+      '<button type="button" class="primary" data-act="save-transfer">' + esc(t('transfer.save')) + '</button></div>' +
+      '<p class="xfhint">' + esc(hint) + '</p>';
+  }
+  function addTransfer() {
+    captureXfForm();
+    var d = xfDraft();
+    var amt = parseAmount(d.amount);
+    var rate = parseAmount(d.rate == '' ? '1' : d.rate);
+    if (d.from === d.to) { toast(t('transfer.sameError')); return; }
+    if (!(amt > 0)) { toast(t('transfer.amountError')); var a = $('#xf-amount'); if (a) a.focus(); return; }
+    if (!(rate > 0)) { toast(t('transfer.rateError')); var r = $('#xf-rate'); if (r) r.focus(); return; }
+    ensureEditable();
+    var from = accById(d.from, S.accounts), to = accById(d.to, S.accounts);
+    if (!from || !to) { toast(t('transfer.sameError')); return; }
+    if (from.cur === to.cur) rate = 1;
+    S.transfers.push({
+      id: 'xf' + uid(), from: from.id, to: to.id, a: r2(amt), rate: r2(rate),
+      d: /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : TODAY_ISO,
+      n: String(d.note || '').trim().slice(0, 60)
+    });
+    S.xfDraft = null;
+    persistCfg();
+    closeTransfer();
+    renderAll();
+    toast(t('transfer.added', { amount: moneyAcc(amt, from.cur) }));
+  }
+  function delTransfer(id) {
+    ensureEditable();
+    S.transfers = S.transfers.filter(function (x) { return x.id !== id; });
+    persistCfg();
+    renderAll();
+    toast(t('transfer.deleted'));
   }
 
   function fxSettingsHtml() {
@@ -1930,10 +2499,26 @@
 
   /* ---------- data sovereignty ---------- */
   function exportCsv() {
-    var rows = [[t('csv.date'), t('csv.type'), t('csv.category'), t('csv.note'), t('csv.amount'), t('csv.micro')]];
+    var rows = [[
+      t('csv.date'), t('csv.type'), t('csv.category'), t('csv.note'), t('csv.amount'), t('csv.micro'),
+      t('csv.account'), t('csv.currency'), t('csv.original'), t('csv.destination')
+    ]];
     getTx(S.viewYM).slice().sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; }).forEach(function (tx) {
-      rows.push([tx.d, tx.t === 'g' ? t('csv.expense') : t('csv.income'), catName(tx), tx.n, tx.a, tx.h ? t('csv.yes') : '']);
+      rows.push([
+        tx.d, tx.t === 'g' ? t('csv.expense') : t('csv.income'), catName(tx), tx.n, tx.a, tx.h ? t('csv.yes') : '',
+        accName(tx.acc), tx.cur || accCur(tx.acc), tx.orig || '', ''
+      ]);
     });
+    getTransfers().filter(function (x) { return x.d.slice(0, 7) === S.viewYM; })
+      .sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; })
+      .forEach(function (x) {
+        var to = accById(x.to);
+        rows.push([
+          x.d, t('transfer.csvType'), t('transfer.short'), x.n || (accName(x.from) + ' → ' + accName(x.to)),
+          x.a, '', accName(x.from), accCur(x.from), x.a,
+          moneyAcc(x.a * x.rate, to ? to.cur : getCfg().cur)
+        ]);
+      });
     Storage.exportCsv('clearwallet-' + S.viewYM + '.csv', rows);
     toast(t('settings.csvExported'));
   }
@@ -1949,7 +2534,7 @@
         if (tx.length) months[ym] = tx;
       }
     }
-    Storage.exportBackup({ cfg: cfg, months: months });
+    Storage.exportBackup({ cfg: cfg, months: months, accounts: getAccounts(), transfers: getTransfers() });
     toast(t('settings.backupExported'));
   }
 
@@ -1967,20 +2552,27 @@
       var check = Storage.validateBackup ? Storage.validateBackup(data) : { ok: true };
       if (!check.ok) { toast(check.msgText || t('settings.backupInvalid')); return; }
       if (!window.confirm(t('settings.importConfirm'))) return;
-      var cfg = normCfg(data.cfg);
-      var months = sanitizeMonths(data.months);
-      S.cfg = cfg;
-      S.months = months;
+      var state = normalizeState(data);
+      S.cfg = state.cfg;
+      S.months = state.months;
+      S.accounts = state.accounts;
+      S.transfers = state.transfers;
       S.demo = false;
       demoCache = null;
       S.viewYM = TODAY_YM;
       S.filter = 'all';
+      S.accountFilter = 'all';
       S.limit = 60;
       S.confirmDel = null;
+      S.confirmDelAcc = null;
       S.editTx = null;
       S.recDraft = null;
-    S.debtDraft = null;
-    S.fxDraft = null;
+      S.debtDraft = null;
+      S.fxDraft = null;
+      S.accDraft = null;
+      S.editAccount = null;
+      S.xfDraft = null;
+      S.addAcc = S.accounts[0] ? S.accounts[0].id : '';
       resetSearch();
       lsSave();
       $('#dt').value = defaultDate(S.viewYM);
@@ -2011,16 +2603,28 @@
     S.demo = true;
     S.cfg = defaultCfg(cur);
     S.months = {};
+    S.accounts = [mainAcc(cur)];
+    S.transfers = [];
+    S.accountFilter = 'all';
+    S.addAcc = S.accounts[0].id;
+    S.accDraft = null;
+    S.editAccount = null;
+    S.xfDraft = null;
     demoCache = null;
     S.viewYM = TODAY_YM;
     S.filter = 'all';
     S.limit = 60;
     S.confirmDel = null;
+    S.confirmDelAcc = null;
     S.editTx = null;
     S.recDraft = null;
     S.debtDraft = null;
     S.fxDraft = null;
+    S.openAcc = false;
+    S.openXf = false;
     resetSearch();
+    $('#accsheet').hidden = true;
+    $('#xfsheet').hidden = true;
     $('#dt').value = TODAY_ISO;
     closeSettings();
     setView('overview');
@@ -2043,6 +2647,15 @@
     else if (a === 'close-settings') closeSettings();
     else if (a === 'open-add') openAdd();
     else if (a === 'close-add') closeAdd();
+    else if (a === 'open-account') openAccount();
+    else if (a === 'close-account') closeAccount();
+    else if (a === 'save-account') saveAccount();
+    else if (a === 'edit-account') openAccount(b.dataset.id);
+    else if (a === 'del-account') delAccount(b.dataset.id);
+    else if (a === 'open-transfer') openTransfer();
+    else if (a === 'close-transfer') closeTransfer();
+    else if (a === 'save-transfer') addTransfer();
+    else if (a === 'del-transfer') delTransfer(b.dataset.id);
     else if (a === 'cat') {
       S.cat = b.dataset.id;
       $$('#catchips .chip').forEach(function (x) {
@@ -2062,6 +2675,7 @@
       loadDemo();
     } else if (a === 'filter') { S.filter = b.dataset.f; S.limit = 60; renderList(); }
     else if (a === 'more') { S.limit += 60; renderList(); }
+    else if (a === 'account-filter') { S.accountFilter = b.dataset.id; S.limit = 60; renderList(); }
     else if (a === 'clear-search') {
       resetSearch();
       renderList();
@@ -2146,8 +2760,19 @@
       }
       return;
     }
-    if (el.id === 'rec-cat') { captureRecForm(); return; }
+    if (el.id === 'acfilter') { S.accountFilter = el.value; S.limit = 60; renderList(); return; }
+    if (el.id === 'rec-cat' || el.id === 'rec-acc') { captureRecForm(); return; }
     if (el.id === 'rec-type') { captureRecForm(); renderFixed(); return; }
+    if (el.id === 'acc-type' || el.id === 'acc-cur' || el.id === 'acc-color') { captureAccForm(); return; }
+    if (el.id === 'xf-from' || el.id === 'xf-to') {
+      captureXfForm();
+      var d = xfDraft();
+      var fcur = accCur(d.from), tcur = accCur(d.to);
+      var auto = fxRate(fcur, tcur);
+      d.rate = fcur === tcur ? '1' : (auto == null ? '' : String(auto));
+      renderTransferForm();
+      return;
+    }
     if (el.id === 'debt-auto') {
       captureDebtForm();
       S.cfg.debtAutoTx = el.checked;
@@ -2205,12 +2830,16 @@
     }
     if (e.target.id === 'note') updateIconPreview();
     if (e.target.id === 'rec-name' || e.target.id === 'rec-amt' || e.target.id === 'rec-day') captureRecForm();
+    if (['acc-name', 'acc-initial'].indexOf(e.target.id) >= 0) captureAccForm();
+    if (['xf-amount', 'xf-rate', 'xf-date', 'xf-note'].indexOf(e.target.id) >= 0) captureXfForm();
     if (['debt-name', 'debt-amt', 'debt-note'].indexOf(e.target.id) >= 0) captureDebtForm();
     if (['fx-rate', 'cv-amt'].indexOf(e.target.id) >= 0) captureFxForm();
   });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      if (S.openAcc) { closeAccount(); return; }
+      if (S.openXf) { closeTransfer(); return; }
       if (S.openAdd) { closeAdd(); return; }
       if (S.openSettings) { closeSettings(); return; }
       if (S.editTx) { S.editTx = null; renderList(); return; }
@@ -2239,6 +2868,16 @@
       e.preventDefault();
       captureDebtForm();
       addDebt();
+    }
+    if (e.key === 'Enter' && (e.target.id === 'acc-name' || e.target.id === 'acc-initial')) {
+      e.preventDefault();
+      captureAccForm();
+      saveAccount();
+    }
+    if (e.key === 'Enter' && ['xf-amount', 'xf-rate', 'xf-note'].indexOf(e.target.id) >= 0) {
+      e.preventDefault();
+      captureXfForm();
+      addTransfer();
     }
     if (e.key === 'Enter' && e.target.id === 'fx-rate') {
       e.preventDefault();
@@ -2287,20 +2926,34 @@
     if (Storage.whenReady) Storage.whenReady().then(function () {
       var fresh = Storage.load();
       if (!fresh || !storedHasData(fresh)) return;
-      var cfg = normCfg(fresh.cfg), months = sanitizeMonths(fresh.months);
-      if (JSON.stringify(cfg) === JSON.stringify(S.cfg) && JSON.stringify(months) === JSON.stringify(S.months)) return;
-      S.cfg = cfg; S.months = months; S.demo = false;
+      var state = normalizeState(fresh);
+      if (JSON.stringify(state.cfg) === JSON.stringify(S.cfg) &&
+          JSON.stringify(state.months) === JSON.stringify(S.months) &&
+          JSON.stringify(state.accounts) === JSON.stringify(S.accounts) &&
+          JSON.stringify(state.transfers) === JSON.stringify(S.transfers)) return;
+      S.cfg = state.cfg; S.months = state.months;
+      S.accounts = state.accounts; S.transfers = state.transfers;
+      S.demo = false;
+      S.addAcc = S.accounts[0] ? S.accounts[0].id : '';
+      if (S.accountFilter !== 'all' && !S.accounts.some(function (a) { return a.id === S.accountFilter; })) S.accountFilter = 'all';
       renderAll(); renderChips();
     }).catch(function () {});
     if (stored && storedHasData(stored)) {
-      S.cfg = normCfg(stored.cfg);
-      S.months = sanitizeMonths(stored.months);
+      var state = normalizeState(stored);
+      S.cfg = state.cfg;
+      S.months = state.months;
+      S.accounts = state.accounts;
+      S.transfers = state.transfers;
+      S.addAcc = S.accounts[0] ? S.accounts[0].id : '';
       S.demo = false;
     } else {
       /* No stored movements and no fixed payments: start with the enriched
          demo so the donut and evolution curve are filled from the beginning. */
       S.cfg = stored && stored.cfg ? normCfg(stored.cfg) : defaultCfg();
       S.months = {};
+      S.accounts = [mainAcc(S.cfg.cur)];
+      S.transfers = [];
+      S.addAcc = S.accounts[0].id;
       S.demo = true;
     }
     $('#dt').value = TODAY_ISO;

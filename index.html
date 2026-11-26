@@ -52,6 +52,10 @@
 
       <div class="topact">
         <button type="button" class="primary addhdr" id="addhdr" data-act="open-add" data-i18n-aria="add.title"><span aria-hidden="true">+</span> <span data-i18n="add.title">Add transaction</span></button>
+        <button type="button" class="ghost transferhdr" id="xfhdr" data-act="open-transfer" data-i18n-title="transfer.title" data-i18n-aria="transfer.title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7.2v5h-5M4 16.8v-5h5"/><path d="M18.6 12.2a6.7 6.7 0 00-11.4-4.7L4 10.8M5.4 11.8a6.7 6.7 0 0011.4 4.7l3.2-3.3"/></svg>
+          <span data-i18n="transfer.short">Transfer</span>
+        </button>
         <div class="langwrap">
           <label class="sr" for="langsel" data-i18n="common.language">Language</label>
           <select id="langsel" class="langsel" aria-label="Language" data-i18n-aria="common.language">
@@ -73,6 +77,7 @@
 
     <nav class="viewtabs" id="viewtabs" role="tablist" aria-label="Views" data-i18n-aria="views.group">
       <button type="button" class="on" data-act="view" data-view="overview" role="tab" aria-selected="true" data-i18n="views.overview">Overview</button>
+      <button type="button" data-act="view" data-view="accounts" role="tab" aria-selected="false" data-i18n="views.accounts">Accounts</button>
       <button type="button" data-act="view" data-view="movements" role="tab" aria-selected="false" data-i18n="views.movements">Movements</button>
       <button type="button" data-act="view" data-view="fixed" role="tab" aria-selected="false" data-i18n="views.fixed">Fixed payments</button>
       <button type="button" data-act="view" data-view="goals" role="tab" aria-selected="false" data-i18n="views.goals">Goals</button>
@@ -100,6 +105,10 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
           </div>
+          <div class="accfilter">
+            <label class="sr" for="acfilter" data-i18n="list.accountFilter">Account</label>
+            <select id="acfilter" class="field" data-i18n-aria="list.accountFilter"></select>
+          </div>
           <div class="filters" id="listfilters" role="group" aria-label="Filter" data-i18n-aria="list.filtersAria"></div>
         </div>
         <div class="th txhead" aria-hidden="true">
@@ -119,6 +128,8 @@
       <section class="card v-goals" id="history" aria-label="Last 6 months" data-i18n-aria="history.title"></section>
 
       <section class="card v-overview v-debts" id="debts" aria-label="Debts and loans" data-i18n-aria="debts.title"></section>
+
+      <section class="card v-accounts" id="accounts" aria-label="Accounts" data-i18n-aria="accounts.title"></section>
     </main>
   </div>
 
@@ -151,6 +162,11 @@
 
       <div class="chips" id="catchips" role="group" aria-label="Category" data-i18n-aria="add.categoryLabel"></div>
 
+      <div class="fieldrow">
+        <label class="lab" for="add-acc" data-i18n="add.accountLabel">Account</label>
+        <select id="add-acc" class="field"></select>
+      </div>
+
       <div class="row2">
         <div>
           <label class="sr" for="note" data-i18n="add.noteLabel">Note</label>
@@ -167,6 +183,32 @@
         <button type="button" class="primary" id="addbtn" data-i18n="add.expenseBtn">Add expense</button>
       </div>
       <p class="hint" id="horhint" data-i18n="add.microHint">Micro: small, repeated purchases such as coffee, snacks or delivery. They are tracked separately so you can see how much they add up to.</p>
+    </aside>
+  </div>
+
+  <div class="sheet" id="accsheet" hidden>
+    <div class="sheet-bg" data-act="close-account"></div>
+    <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="acc-title">
+      <div class="phead">
+        <h2 id="acc-title" data-i18n="accounts.new">New account</h2>
+        <button type="button" class="icon" data-act="close-account" id="closeaccbtn" aria-label="Close" data-i18n-aria="common.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="accbody"></div>
+    </aside>
+  </div>
+
+  <div class="sheet" id="xfsheet" hidden>
+    <div class="sheet-bg" data-act="close-transfer"></div>
+    <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="xf-title">
+      <div class="phead">
+        <h2 id="xf-title" data-i18n="transfer.title">Transfer between accounts</h2>
+        <button type="button" class="icon" data-act="close-transfer" id="closexfbtn" aria-label="Close" data-i18n-aria="common.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="xfbody"></div>
     </aside>
   </div>
 

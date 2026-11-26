@@ -369,3 +369,40 @@ Object.assign(window.CWI18N.en, {
     missing: 'Set a rate for this pair first.'
   }
 });
+
+Object.assign(window.CWI18N.en.views, { accounts: 'Accounts' });
+Object.assign(window.CWI18N.en.add, { accountLabel: 'Account' });
+Object.assign(window.CWI18N.en.list, { accountFilter: 'Account', allAccounts: 'All accounts' });
+Object.assign(window.CWI18N.en.csv, {
+  account: 'Account', currency: 'Currency', original: 'Original amount', destination: 'Received at destination'
+});
+Object.assign(window.CWI18N.en, {
+  accounts: {
+    title: 'Accounts & wallets', sub: 'Balances and internal transfers',
+    new: 'New account', edit: 'Edit account', main: 'Main account',
+    cash: 'Cash', bank: 'Bank', card: 'Card', savings: 'Savings', other: 'Other', custom: 'Custom',
+    unknown: 'Unknown account',
+    name: 'Account name', namePh: 'e.g. Checking, Cash, Savings',
+    type: 'Account type', currency: 'Currency', initial: 'Initial balance', color: 'Color',
+    save: 'Save account', formHint: 'The initial balance is added to movements in this account. Transfers never count as income or expenses.',
+    nameError: 'Enter an account name', initialError: 'Enter a valid initial balance',
+    lastError: 'You need at least one account', created: 'Account created', updated: 'Account updated', deleted: 'Account deleted',
+    editAria: 'Edit {name}', deleteAria: 'Delete {name}', deleteConfirm: 'Delete?',
+    total: 'Consolidated balance', totalSub: '{n} accounts',
+    initialShort: 'Initial', incomeShort: 'Income', expensesShort: 'Expenses',
+    unconverted: { one: '{n} account without a rate', other: '{n} accounts without a rate' },
+    rateMissing: 'No exchange rate for this currency; using 1:1'
+  },
+  transfer: {
+    title: 'Transfer between accounts', short: 'Transfer', new: 'New transfer',
+    from: 'From account', to: 'To account', amount: 'Amount', rate: 'Exchange rate', date: 'Date',
+    note: 'Note (optional)', notePh: 'e.g. savings, cash…', save: 'Transfer', cancel: 'Cancel',
+    hint: 'Moves money between your accounts. It never appears as income or expense.',
+    rateHint: '1 {from} = rate {to}', sameCurHint: 'Same currency: rate is fixed at 1',
+    history: 'Internal transfers', listSub: 'Not counted as income or expenses', empty: 'No transfers yet.',
+    needTwo: 'Create at least two accounts to transfer', sameError: 'Choose two different accounts',
+    amountError: 'Enter an amount greater than zero', rateError: 'Enter a rate greater than zero',
+    added: 'Transfer added: {amount}', deleted: 'Transfer deleted', deleteAria: 'Delete transfer',
+    csvType: 'Transfer', demoSavings: 'Monthly savings', demoCash: 'Cash top-up'
+  }
+});
