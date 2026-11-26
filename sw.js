@@ -1,7 +1,9 @@
 /* ClearWallet service worker — Network-First for HTML, cache-first for assets */
 'use strict';
 
-const CACHE = 'clearwallet-v1.3.1';
+/* Etapa 1: subir version con cada cambio. Solo se purga CacheStorage;
+   IndexedDB (clearwallet_db) y localStorage nunca se borran aqui. */
+const CACHE = 'clearwallet-v1.4.0';
 const PRECACHE = [
   './',
   './index.html',

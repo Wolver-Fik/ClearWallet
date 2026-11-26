@@ -5,6 +5,116 @@
   var KEY = 'clearwallet-v1';
   var LEGACY_KEY = 'plata-al-dia-v1';
 
+  /* ---------- Capa IndexedDB (Etapa 1) ----------
+     IndexedDB pasa a ser el almacen principal; localStorage sigue siendo el
+     espejo sincrono que consume app.js. Los archivos van al store 'files',
+     fuera del limite de 5 MB de localStorage. */
+  var DB_NAME = 'clearwallet_db';
+  var DB_VERSION = 1;
+  var SCHEMA_VERSION = 2;
+  var STORE_STATE = 'state';
+  var STORE_FILES = 'files';
+  var STATE_KEY = 'main';
+  var MIRROR_KEYS = [KEY, LEGACY_KEY, 'clearwallet-lang-v1'];
+  var dbPromise = null, idbReady = false, idbFailed = false, pendingWrite = false;
+  var initPromise = null, writeChain = Promise.resolve(), memoryBackup = null;
+
+  function idbOpen() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (resolve, reject) {
+      if (!('indexedDB' in global)) { reject(new Error('IndexedDB no disponible')); return; }
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE_STATE)) db.createObjectStore(STORE_STATE);
+        if (!db.objectStoreNames.contains(STORE_FILES)) db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+      };
+      req.onsuccess = function () { idbReady = true; resolve(req.result); };
+      req.onerror = function () { idbFailed = true; reject(req.error || new Error('No se pudo abrir IndexedDB')); };
+      req.onblocked = function () { idbFailed = true; reject(new Error('IndexedDB bloqueada')); };
+    });
+    return dbPromise;
+  }
+  function idbRequest(db, store, mode, run) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(store, mode), os = tx.objectStore(store), result;
+      try { result = run(os); } catch (e) { reject(e); return; }
+      tx.oncomplete = function () { resolve(result && result.result !== undefined ? result.result : undefined); };
+      tx.onerror = function () { reject(tx.error || new Error('Error de IndexedDB')); };
+      tx.onabort = function () { reject(tx.error || new Error('Transaccion abortada')); };
+    });
+  }
+  function idbGet(store, key) {
+    return idbOpen().then(function (db) { return idbRequest(db, store, 'readonly', function (os) { return os.get(key); }) });
+  }
+  function idbGetAll(store) {
+    return idbOpen().then(function (db) { return idbRequest(db, store, 'readonly', function (os) { return os.getAll(); }) });
+  }
+  function idbPut(store, key, value) {
+    return idbOpen().then(function (db) {
+      return idbRequest(db, store, 'readwrite', function (os) { return key === undefined ? os.put(value) : os.put(value, key) });
+    });
+  }
+  function idbDelete(store, key) {
+    return idbOpen().then(function (db) { return idbRequest(db, store, 'readwrite', function (os) { return os.delete(key); }) });
+  }
+  function localSnapshot() {
+    var snap = {};
+    try { MIRROR_KEYS.forEach(function (k) { var v = localStorage.getItem(k); if (v !== null) snap[k] = v; }); } catch (e) {}
+    return snap;
+  }
+  function restoreSnapshot(snap) {
+    try {
+      MIRROR_KEYS.forEach(function (k) {
+        if (Object.prototype.hasOwnProperty.call(snap, k)) localStorage.setItem(k, snap[k]);
+      });
+    } catch (e) {}
+  }
+  function writeIDB(data) {
+    writeChain = writeChain.then(function () {
+      return idbPut(STORE_STATE, STATE_KEY, {
+        schemaVersion: SCHEMA_VERSION, app: 'clearwallet', data: data,
+        localStorage: localSnapshot(), updatedAt: new Date().toISOString()
+      });
+    }).catch(function () { idbFailed = true; });
+    return writeChain;
+  }
+  function initIDB() {
+    if (initPromise) return initPromise;
+    initPromise = idbOpen().then(function () { return idbGet(STORE_STATE, STATE_KEY); })
+      .then(function (rec) {
+        var local = null;
+        try { local = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || 'null'); } catch (e) {}
+        if (!rec) { if (local) writeIDB(local); return; }
+        var remote = (rec.schemaVersion && rec.data) ? rec.data : rec;
+        /* Si el usuario ya guardo en esta sesion, esa escritura es la fuente
+           de verdad: no se encola una version antigua de IndexedDB. */
+        if (pendingWrite) return;
+        if (!local || (remote && remote.cfg && (!local.cfg || !hasData(local)))) {
+          // IndexedDB tenia datos que localStorage ya no tenia: se restauran.
+          try { localStorage.setItem(KEY, JSON.stringify(remote)); } catch (e) {}
+          writeIDB(remote);
+        } else writeIDB(local);
+      }).catch(function () { idbFailed = true; });
+    return initPromise;
+  }
+  function hasData(d) {
+    if (!d || !d.months || typeof d.months !== 'object') return false;
+    return Object.keys(d.months).some(function (k) { return Array.isArray(d.months[k]) && d.months[k].length; });
+  }
+  function whenReady() { return initIDB(); }
+  function putFile(id, data, meta) {
+    var rec = {
+      id: String(id), data: data, type: (meta && meta.type) || '', name: (meta && meta.name) || '',
+      size: typeof data === 'string' ? data.length : ((data && data.size) || 0),
+      schemaVersion: SCHEMA_VERSION, createdAt: new Date().toISOString()
+    };
+    return idbPut(STORE_FILES, undefined, rec);
+  }
+  function getFile(id) { return idbGet(STORE_FILES, String(id)); }
+  function listFiles() { return idbGetAll(STORE_FILES); }
+  function deleteFile(id) { return idbDelete(STORE_FILES, String(id)); }
+
   /* ---------- currency detection ---------- */
   var TZ_CUR = {
     'America/Montevideo': 'UYU',
@@ -140,24 +250,37 @@
           try { localStorage.setItem(KEY, raw); } catch (e) {}
         }
       }
-      return raw ? JSON.parse(raw) : null;
+      var parsed = raw ? JSON.parse(raw) : null;
+      /* Migracion automatica localStorage -> IndexedDB (sin perder registros). */
+      initIDB();
+      return parsed;
     } catch (e) {
+      initIDB();
       return null;
     }
   }
 
   function save(state) {
+    var payload = { cfg: state.cfg, months: state.months || {} };
+    var ok;
     try {
-      localStorage.setItem(KEY, JSON.stringify({ cfg: state.cfg, months: state.months || {} }));
-      return true;
+      localStorage.setItem(KEY, JSON.stringify({
+        app: 'clearwallet', schemaVersion: SCHEMA_VERSION, v: 2,
+        cfg: payload.cfg, months: payload.months
+      }));
+      ok = true;
     } catch (e) {
-      return false;
+      ok = false;
     }
+    pendingWrite = true;
+    writeIDB(payload).then(function () { pendingWrite = false; }, function () { pendingWrite = false; });
+    return ok;
   }
 
   function clear() {
     try { localStorage.removeItem(KEY); } catch (e) {}
     try { localStorage.removeItem(LEGACY_KEY); } catch (e) {}
+    idbDelete(STORE_STATE, STATE_KEY).catch(function () {});
   }
 
   /* ---------- downloads ---------- */
@@ -183,6 +306,7 @@
   function exportBackup(state) {
     var payload = {
       app: 'ClearWallet',
+      schemaVersion: SCHEMA_VERSION,
       version: 2,
       exportedAt: new Date().toISOString(),
       cfg: state.cfg,
@@ -191,20 +315,60 @@
     download('clearwallet-backup-' + stamp() + '.json', JSON.stringify(payload, null, 2), 'application/json');
   }
 
+  /* Valida origen y estructura antes de sobrescribir el estado actual. */
+  function validateBackup(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, msgText: 'El archivo no contiene un respaldo válido.' };
+    }
+    if (data.app && String(data.app).toLowerCase() !== 'clearwallet') {
+      return { ok: false, msgText: 'Este respaldo pertenece a otra aplicación y no se importará.' };
+    }
+    var sv = data.schemaVersion == null ? (typeof data.version === 'number' ? data.version : 1) : Number(data.schemaVersion);
+    if (!isFinite(sv) || sv < 1 || sv > SCHEMA_VERSION) {
+      return { ok: false, msgText: 'La versión de esquema del respaldo no es compatible.' };
+    }
+    if (!data.cfg || typeof data.cfg !== 'object' || Array.isArray(data.cfg)) {
+      return { ok: false, msgText: 'El respaldo está dañado: falta la configuración.' };
+    }
+    var markers = ['cur', 'cats', 'recurring', 'debts', 'rates', 'saveTarget', 'goal'];
+    if (!markers.some(function (k) { return Object.prototype.hasOwnProperty.call(data.cfg, k); })) {
+      return { ok: false, msgText: 'El respaldo está incompleto: la configuración no es reconocible.' };
+    }
+    if (data.months !== undefined && (typeof data.months !== 'object' || Array.isArray(data.months))) {
+      return { ok: false, msgText: 'El respaldo está dañado: el historial no es válido.' };
+    }
+    return { ok: true, version: sv };
+  }
+
   function readBackup(file) {
     return new Promise(function (resolve, reject) {
       if (!file) { reject(new Error('missing-file')); return; }
+      /* Copia de seguridad en memoria: si el archivo falla, se restaura tal cual. */
+      var safety = localSnapshot();
       var reader = new FileReader();
       reader.onload = function () {
         try {
           var data = JSON.parse(String(reader.result || ''));
-          if (!data || typeof data !== 'object' || !data.cfg) throw new Error('invalid');
+          var v = validateBackup(data);
+          if (!v.ok) {
+            restoreSnapshot(safety);
+            var err = new Error('invalid');
+            err.msgText = v.msgText;
+            reject(err);
+            return;
+          }
+          memoryBackup = safety;
           resolve(data);
         } catch (e) {
+          restoreSnapshot(safety);
+          e.msgText = 'El archivo está dañado o incompleto; tus datos siguen intactos.';
           reject(e);
         }
       };
-      reader.onerror = function () { reject(reader.error || new Error('read-error')); };
+      reader.onerror = function () {
+        restoreSnapshot(safety);
+        reject(reader.error || new Error('read-error'));
+      };
       reader.readAsText(file);
     });
   }
@@ -232,6 +396,16 @@
     download: download,
     exportBackup: exportBackup,
     readBackup: readBackup,
-    exportCsv: exportCsv
+    validateBackup: validateBackup,
+    exportCsv: exportCsv,
+    /* Etapa 1: almacenamiento durable y sin limite de 5 MB */
+    DB_NAME: DB_NAME,
+    SCHEMA_VERSION: SCHEMA_VERSION,
+    whenReady: whenReady,
+    isIndexedDBReady: function () { return idbReady && !idbFailed; },
+    putFile: putFile,
+    getFile: getFile,
+    listFiles: listFiles,
+    deleteFile: deleteFile
   };
 })(window);

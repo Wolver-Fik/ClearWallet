@@ -1962,6 +1962,10 @@
     var file = e.target.files && e.target.files[0];
     if (!file) return;
     Storage.readBackup(file).then(function (data) {
+      /* Validacion adicional antes de tocar el estado: si el archivo esta
+         incompleto o viene de otra app, no se sobrescribe nada. */
+      var check = Storage.validateBackup ? Storage.validateBackup(data) : { ok: true };
+      if (!check.ok) { toast(check.msgText || t('settings.backupInvalid')); return; }
       if (!window.confirm(t('settings.importConfirm'))) return;
       var cfg = normCfg(data.cfg);
       var months = sanitizeMonths(data.months);
@@ -1985,8 +1989,8 @@
       renderChips();
       renderSettings();
       toast(t('settings.backupImported'));
-    }).catch(function () {
-      toast(t('settings.backupInvalid'));
+    }).catch(function (err) {
+      toast((err && err.msgText) || t('settings.backupInvalid'));
     }).then(function () {
       e.target.value = '';
     });
@@ -2278,6 +2282,16 @@
     applyStatic();
     syncTypeUI();
     var stored = Storage.load();
+    /* La migracion a IndexedDB termina despues del primer render: solo se
+       refleja si cambio el estado persistido, sin pisar cambios del usuario. */
+    if (Storage.whenReady) Storage.whenReady().then(function () {
+      var fresh = Storage.load();
+      if (!fresh || !storedHasData(fresh)) return;
+      var cfg = normCfg(fresh.cfg), months = sanitizeMonths(fresh.months);
+      if (JSON.stringify(cfg) === JSON.stringify(S.cfg) && JSON.stringify(months) === JSON.stringify(S.months)) return;
+      S.cfg = cfg; S.months = months; S.demo = false;
+      renderAll(); renderChips();
+    }).catch(function () {});
     if (stored && storedHasData(stored)) {
       S.cfg = normCfg(stored.cfg);
       S.months = sanitizeMonths(stored.months);
