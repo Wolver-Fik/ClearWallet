@@ -38,7 +38,8 @@ window.CWI18N.de = {
     title: 'Transaktion hinzufügen',
     amountLabel: 'Betrag',
     noteLabel: 'Notiz',
-    notePlaceholder: 'Notiz (optional): Einkauf, Tanken, Kino…',
+    notePlaceholder: 'Notiz (optional): Einkauf, Kaffee…',
+    notePlaceholderIncome: 'Notiz (optional): Gehalt, Nebenjob…',
     dateLabel: 'Datum',
     categoryLabel: 'Kategorie',
     micro: 'Kleine Ausgaben',
@@ -122,6 +123,12 @@ window.CWI18N.de = {
     tooltipDay: '+{amount} an diesem Tag'
   },
   fixed: {
+    income: {
+      paid: 'Zahlung eingegangen',
+      dueToday: 'Zahlungseingang heute erwartet',
+      dueIn: { one: 'Zahlungseingang in {n} Tag erwartet', other: 'Zahlungseingang in {n} Tagen erwartet' },
+      overdue: { one: 'Zahlungseingang ausstehend ({n} Tag)', other: 'Zahlungseingang ausstehend ({n} Tage)' }
+    },
     title: 'Feste und wiederkehrende Zahlungen',
     sub: 'Abonnements, Miete, Versorgung',
     upcomingTitle: 'Anstehende Fälligkeiten',
@@ -191,7 +198,7 @@ window.CWI18N.de = {
     deleted: 'Transaktion gelöscht',
     microTag: 'klein',
     searchAria: 'Bewegungen suchen',
-    searchPlaceholder: 'Nach Notiz, Kategorie, Datum oder Betrag suchen…',
+    searchPlaceholder: 'Suche: Notiz, Kategorie, Datum…',
     filtersAria: 'Bewegungen filtern',
     clearSearch: 'Suche löschen',
     editAria: 'Bewegung bearbeiten',
@@ -411,5 +418,45 @@ Object.assign(window.CWI18N.de, {
     amountError: 'Bitte einen Betrag größer als null eingeben', rateError: 'Bitte einen Kurs größer als null eingeben',
     added: 'Überweisung hinzugefügt: {amount}', deleted: 'Überweisung gelöscht', deleteAria: 'Überweisung löschen',
     csvType: 'Überweisung', demoSavings: 'Monatliche Ersparnisse', demoCash: 'Bargeldauffüllung'
+  }
+});
+
+/* v1.6.0 — Integrität bei mehreren Währungen, Teilzahlungen und sichere Updates */
+Object.assign(window.CWI18N.de.csv, {
+  originalAmount: 'Ursprünglicher Betrag', originalCurrency: 'Ursprüngliche Währung',
+  convertedAmount: 'Umgerechneter Betrag', baseCurrency: 'Basiswährung'
+});
+Object.assign(window.CWI18N.de.settings, {
+  currencyNote: 'Bestehende Beträge, Budgets, Ziele, Schulden und Konten werden mit deinen Kursen umgerechnet; fehlende Kurse werden abgefragt.',
+  currencyRecalculated: 'Währung geändert und alle Beträge neu berechnet.',
+  currencyCancelled: 'Änderung abgebrochen: bitte den fehlenden Wechselkurs eingeben.'
+});
+Object.assign(window.CWI18N.de.accounts, {
+  rateMissing: 'Kein Kurs für diese Währung. Bitte in Einstellungen → Wechselkurse ergänzen.',
+  setRates: 'Fehlende Kurse festlegen'
+});
+Object.assign(window.CWI18N.de.add, { converted: '≈ {amount} in {base} (Kurs {rate})' });
+Object.assign(window.CWI18N.de.fx, {
+  askRate: 'Bitte den Kurs eingeben, um diese Buchung zu speichern: 1 {from} = ? {to}',
+  rateRequired: 'Bitte vor dem Speichern einen Kurs eingeben'
+});
+Object.assign(window.CWI18N.de.debts, {
+  remaining: 'Offen', paidSoFar: 'Bezahlt', payments: 'Geleistete Raten',
+  paymentsEmpty: 'Noch keine Raten erfasst.',
+  payInstallment: 'Rate zahlen', payAmount: 'Ratenbetrag',
+  payAccount: 'Konto, von dem das Geld kommt / auf das es geht', payDate: 'Zahlungsdatum',
+  payNote: 'Notiz (optional)', paySave: 'Rate erfassen', payCancel: 'Abbrechen',
+  paymentAdded: 'Rate erfasst: {amount}', paymentError: 'Bitte einen Betrag über null eingeben',
+  paymentTooHigh: 'Die Rate darf den offenen Betrag nicht überschreiten',
+  paymentTxNote: 'Schuldentilgung', rateUsed: 'Angewendeter Kurs: 1 {from} = {rate} {to}',
+  settleRemaining: 'Restbetrag begleichen'
+});
+Object.assign(window.CWI18N.de.fx, { invalid: 'Bitte einen gültigen Wechselkurs eingeben.' });
+Object.assign(window.CWI18N.de, {
+  update: {
+    available: 'Eine neue Version ist verfügbar. Speichere deine Arbeit und wende sie an.',
+    apply: 'Jetzt aktualisieren',
+    ready: 'Update bereit. Speichere deine Arbeit, um es anzuwenden.',
+    unsaved: 'Speichere oder verwerfe deine Änderungen vor dem Aktualisieren.'
   }
 });

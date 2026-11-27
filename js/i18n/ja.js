@@ -38,7 +38,8 @@ window.CWI18N.ja = {
     title: '取引を追加',
     amountLabel: '金額',
     noteLabel: 'メモ',
-    notePlaceholder: 'メモ（任意）：食料品、燃料、映画…',
+    notePlaceholder: 'メモ（任意）：食料品、コーヒー…',
+    notePlaceholderIncome: 'メモ（任意）：給与、副業…',
     dateLabel: '日付',
     categoryLabel: 'カテゴリ',
     micro: '小さな支出',
@@ -122,6 +123,12 @@ window.CWI18N.ja = {
     tooltipDay: 'この日 +{amount}'
   },
   fixed: {
+    income: {
+      paid: '受取済み',
+      dueToday: '本日受取予定',
+      dueIn: { other: '{n}日後に受取予定' },
+      overdue: { other: '受取待ち（{n}日）' }
+    },
     title: '固定・定期支払い',
     sub: 'サブスク、家賃、光熱費',
     upcomingTitle: '次回の支払い',
@@ -190,7 +197,7 @@ window.CWI18N.ja = {
     deleted: '取引を削除しました',
     microTag: '小さな支出',
     searchAria: '取引を検索',
-    searchPlaceholder: 'メモ・カテゴリ・日付・金額で検索…',
+    searchPlaceholder: 'メモ・カテゴリ・日付で検索…',
     filtersAria: '取引の絞り込み',
     clearSearch: '検索をクリア',
     editAria: '取引を編集',
@@ -410,5 +417,45 @@ Object.assign(window.CWI18N.ja, {
     amountError: '0より大きい金額を入力してください', rateError: '0より大きいレートを入力してください',
     added: '振替を追加しました：{amount}', deleted: '振替を削除しました', deleteAria: '振替を削除',
     csvType: '振替', demoSavings: '毎月の貯金', demoCash: '現金の補充'
+  }
+});
+
+/* v1.6.0 — 複数通貨の整合性、一部返済、安全な更新 */
+Object.assign(window.CWI18N.ja.csv, {
+  originalAmount: '元の金額', originalCurrency: '元の通貨',
+  convertedAmount: '換算後の金額', baseCurrency: '基準通貨'
+});
+Object.assign(window.CWI18N.ja.settings, {
+  currencyNote: '既存の金額・予算・目標・借金・口座は登録済みレートで換算され、不足しているレートは入力を求められます。',
+  currencyRecalculated: '通貨を変更し、すべての金額を再計算しました。',
+  currencyCancelled: '変更を取り消しました。不足している為替レートを入力してください。'
+});
+Object.assign(window.CWI18N.ja.accounts, {
+  rateMissing: 'この通貨のレートがありません。「設定 → 手動為替レート」で追加してください。',
+  setRates: '不足しているレートを設定'
+});
+Object.assign(window.CWI18N.ja.add, { converted: '≈ {base} {amount}（レート {rate}）' });
+Object.assign(window.CWI18N.ja.fx, {
+  askRate: 'この操作を保存ためにレートを入力してください：1 {from} = ? {to}',
+  rateRequired: '保存する前にレートを入力してください'
+});
+Object.assign(window.CWI18N.ja.debts, {
+  remaining: '残額', paidSoFar: '支払済み', payments: '支払った分割払い',
+  paymentsEmpty: '分割払いの記録はまだありません。',
+  payInstallment: '分割払いする', payAmount: '分割金額',
+  payAccount: '入出金する口座', payDate: '支払日',
+  payNote: 'メモ（任意）', paySave: '分割払いを記録', payCancel: 'キャンセル',
+  paymentAdded: '分割払いを記録しました：{amount}', paymentError: '0 より大きい金額を入力してください',
+  paymentTooHigh: '分割金額は残額を超えられません',
+  paymentTxNote: '借金の分割払い', rateUsed: '適用レート：1 {from} = {rate} {to}',
+  settleRemaining: '残額を精算'
+});
+Object.assign(window.CWI18N.ja.fx, { invalid: '有効な為替レートを入力してください。' });
+Object.assign(window.CWI18N.ja, {
+  update: {
+    available: '新しいバージョンがあります。作業を保存してから適用してください。',
+    apply: '今すぐ更新',
+    ready: '更新の準備ができました。作業を保存すると適用できます。',
+    unsaved: '更新する前に変更を保存または破棄してください。'
   }
 });

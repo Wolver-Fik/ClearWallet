@@ -38,7 +38,8 @@ window.CWI18N.ru = {
     title: 'Добавить операцию',
     amountLabel: 'Сумма',
     noteLabel: 'Заметка',
-    notePlaceholder: 'Заметка (необязательно): продукты, топливо, кино…',
+    notePlaceholder: 'Заметка (необязательно): еда, кофе…',
+    notePlaceholderIncome: 'Заметка (необязат.): зарплата, продажа…',
     dateLabel: 'Дата',
     categoryLabel: 'Категория',
     micro: 'Мелкие расходы',
@@ -122,6 +123,12 @@ window.CWI18N.ru = {
     tooltipDay: '+{amount} в этот день'
   },
   fixed: {
+    income: {
+      paid: 'Получено',
+      dueToday: 'Поступление ожидается сегодня',
+      dueIn: { one: 'Поступление через {n} день', few: 'Поступление через {n} дня', many: 'Поступление через {n} дней', other: 'Поступление через {n} дня' },
+      overdue: { one: 'Ожидает поступления ({n} день)', few: 'Ожидает поступления ({n} дня)', many: 'Ожидает поступления ({n} дней)', other: 'Ожидает поступления ({n} дня)' }
+    },
     title: 'Постоянные и регулярные платежи',
     sub: 'Подписки, аренда, коммунальные услуги',
     upcomingTitle: 'Ближайшие платежи',
@@ -193,7 +200,7 @@ window.CWI18N.ru = {
     deleted: 'Операция удалена',
     microTag: 'мелкая',
     searchAria: 'Поиск операций',
-    searchPlaceholder: 'Поиск по заметке, категории, дате или сумме…',
+    searchPlaceholder: 'Поиск: заметка, категория, дата…',
     filtersAria: 'Фильтр операций',
     clearSearch: 'Очистить поиск',
     editAria: 'Изменить операцию',
@@ -413,5 +420,45 @@ Object.assign(window.CWI18N.ru, {
     amountError: 'Введите сумму больше нуля', rateError: 'Введите курс больше нуля',
     added: 'Перевод добавлен: {amount}', deleted: 'Перевод удалён', deleteAria: 'Удалить перевод',
     csvType: 'Перевод', demoSavings: 'Месячные сбережения', demoCash: 'Пополнение наличных'
+  }
+});
+
+/* v1.6.0 — целостность нескольких валют, частичные платежи и безопасные обновления */
+Object.assign(window.CWI18N.ru.csv, {
+  originalAmount: 'Исходная сумма', originalCurrency: 'Исходная валюта',
+  convertedAmount: 'Конвертированная сумма', baseCurrency: 'Базовая валюта'
+});
+Object.assign(window.CWI18N.ru.settings, {
+  currencyNote: 'Существующие суммы, бюджеты, цели, долги и счета пересчитываются по вашим курсам; отсутствующие курсы запрашиваются.',
+  currencyRecalculated: 'Валюта изменена, все суммы пересчитаны.',
+  currencyCancelled: 'Изменение отменено: введите отсутствующий курс.'
+});
+Object.assign(window.CWI18N.ru.accounts, {
+  rateMissing: 'Нет курса для этой валюты. Добавьте его в Настройки → Курсы валют.',
+  setRates: 'Указать отсутствующие курсы'
+});
+Object.assign(window.CWI18N.ru.add, { converted: '≈ {amount} в {base} (курс {rate})' });
+Object.assign(window.CWI18N.ru.fx, {
+  askRate: 'Введите курс для сохранения операции: 1 {from} = ? {to}',
+  rateRequired: 'Введите курс перед сохранением'
+});
+Object.assign(window.CWI18N.ru.debts, {
+  remaining: 'Осталось', paidSoFar: 'Оплачено', payments: 'Оплаченные взносы',
+  paymentsEmpty: 'Взносы ещё не записаны.',
+  payInstallment: 'Оплатить взнос', payAmount: 'Сумма взноса',
+  payAccount: 'Счёт списания / зачисления', payDate: 'Дата платежа',
+  payNote: 'Примечание (необязательно)', paySave: 'Записать взнос', payCancel: 'Отмена',
+  paymentAdded: 'Взнос записан: {amount}', paymentError: 'Введите сумму больше нуля',
+  paymentTooHigh: 'Взнос не может превышать остаток',
+  paymentTxNote: 'платёж по долгу', rateUsed: 'Применённый курс: 1 {from} = {rate} {to}',
+  settleRemaining: 'Погасить остаток'
+});
+Object.assign(window.CWI18N.ru.fx, { invalid: 'Введите допустимый курс валюты.' });
+Object.assign(window.CWI18N.ru, {
+  update: {
+    available: 'Доступна новая версия. Сохраните изменения и примените её.',
+    apply: 'Обновить сейчас',
+    ready: 'Обновление готово. Сохраните изменения, чтобы применить его.',
+    unsaved: 'Сохраните или отмените изменения перед обновлением.'
   }
 });

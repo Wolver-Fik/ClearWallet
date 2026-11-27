@@ -173,7 +173,7 @@ button{cursor:pointer}
 .kpi.balance{background:linear-gradient(155deg,rgba(138,164,255,.22),rgba(110,231,249,.06) 48%,var(--s1) 82%)}
 .kpi.balance::after{background:radial-gradient(closest-side,rgba(110,231,249,.16),transparent)}
 .khead{display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:1}
-.klabel{font-size:11.5px;font-weight:500;color:var(--mut);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.klabel{font-size:11.5px;font-weight:500;color:var(--mut);letter-spacing:.01em;min-width:0;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .kicon{width:27px;height:27px;border-radius:9px;flex:none;display:grid;place-items:center;background:rgba(138,164,255,.12);color:var(--accent)}
 .kpi.balance .kicon{background:rgba(110,231,249,.14);color:var(--accent2)}
 .kpi.income .kicon{background:rgba(88,224,176,.12);color:var(--good)}
@@ -186,7 +186,7 @@ button{cursor:pointer}
 .delta{display:inline-flex;align-items:center;gap:2px;font-weight:600;white-space:nowrap;color:var(--mut)}
 .delta.good{color:var(--good)}
 .delta.bad{color:var(--bad)}
-.kvs{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kvs{min-width:0;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .spark{position:relative;z-index:1;display:block;width:100%;height:42px;margin-top:5px;overflow:visible}
 
 /* ---------- projected month-end balance ---------- */
@@ -217,7 +217,7 @@ button{cursor:pointer}
 .cmpcol h4{margin:0 0 7px;font:600 10.5px var(--ff);letter-spacing:.08em;text-transform:uppercase;color:var(--mut);hyphens:none}
 .cmprow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--line);font-size:12px}
 .cmprow:first-of-type{border-top:0}
-.cmprow .cn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmprow .cn{min-width:0;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .cmprow .cd{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cmprow .cd.good{color:var(--good)}
 .cmprow .cd.bad{color:var(--bad)}
@@ -226,8 +226,8 @@ button{cursor:pointer}
 /* ---------- debts & loans ---------- */
 .dbtotals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .dbtot{min-width:0;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--s2)}
-.dbtot span{display:block;font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dbtot b{display:block;margin-top:3px;font:600 15px var(--fd);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbtot span{display:block;font-size:11px;color:var(--mut);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
+.dbtot b{display:block;margin-top:3px;font:600 15px var(--fd);font-variant-numeric:tabular-nums;white-space:nowrap}
 .dbtot.lent b{color:var(--good)}
 .dbtot.owed b{color:var(--bad)}
 .dbtform{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end;margin-bottom:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--s2)}
@@ -242,9 +242,9 @@ button{cursor:pointer}
 .dbtitem:first-child{border-top:0}
 .dbtitem.done{opacity:.55}
 .dbtmain{min-width:0}
-.dbtmain .t1{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dbtmeta{font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dbtdir{font-size:11px;font-weight:600;white-space:nowrap}
+.dbtmain .t1{font-size:13px;font-weight:500;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
+.dbtmeta{font-size:11.5px;color:var(--dim);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
+.dbtdir{font-size:11px;font-weight:600;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .dbtdir.lent{color:var(--good)}
 .dbtdir.owed{color:var(--bad)}
 .dbtamt{text-align:right;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -276,13 +276,13 @@ button{cursor:pointer}
 .previewrow{display:flex;align-items:center;gap:11px;padding:11px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:var(--s2)}
 .previewinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
 .previewinfo .lab{margin:0;font-size:11px}
-.previewlabel{font:600 13px var(--fd);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.previewlabel{font:600 13px var(--fd);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .primary.mini{padding:8px 12px;font-size:12.5px;border-radius:9px;white-space:nowrap}
 .primary.mini span[aria-hidden]{font-size:15px}
 /* Header and movement rows must always use the very same tracks: both read
    --tx-cols/--tx-gap from #list, so the labels can never drift or overlap. */
 .th{display:grid;grid-template-columns:var(--tx-cols);gap:var(--tx-gap);align-items:center;padding:0 2px 7px;color:var(--dim);font:500 10.5px var(--ff);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--line2)}
-.th>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.th>span{min-width:0;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .th .c-amt{text-align:right}
 
 /* ---------- add form ---------- */
@@ -331,9 +331,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .drow:hover,.drow:focus-visible{background:var(--s2)}
 .drow.on{background:rgba(138,164,255,.1);box-shadow:inset 0 0 0 1px rgba(138,164,255,.16)}
 .dinfo{display:flex;flex-direction:column;gap:1px;min-width:0}
-.dname{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dname{font-size:12.5px;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .damt{font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
-.dmeta{font-size:11px;color:var(--dim);white-space:nowrap}
+.dmeta{font-size:11px;color:var(--dim);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .dpct{font:600 12px var(--ff);font-variant-numeric:tabular-nums;color:var(--dim);white-space:nowrap}
 .drow.on .dpct{color:var(--fg)}
 .donutfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);color:var(--dim);font-size:11.5px}
@@ -375,7 +375,7 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .goalmark{width:42px;height:42px;border-radius:13px;flex:none;display:grid;place-items:center;color:#081018;background:linear-gradient(135deg,var(--good),#a7f3d0);box-shadow:0 8px 22px rgba(88,224,176,.2),inset 0 1px 0 rgba(255,255,255,.4)}
 .goalmark svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .goalhead .gname{margin:0}
-.gname{font:600 16px var(--fd);margin:0 0 2px}
+.gname{font:600 16px var(--fd);margin:0 0 2px;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .gline{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mut);font-size:13px}
 .gbar{height:8px;border-radius:99px;background:var(--s2);margin:12px 0 10px;overflow:hidden}
 .gbar i{display:block;height:100%;background:linear-gradient(90deg,var(--good),#8bf2ce);border-radius:99px}
@@ -414,9 +414,9 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .day .dsum{text-transform:none;font-variant-numeric:tabular-nums}
 .tx{display:grid;grid-template-columns:var(--tx-cols);gap:var(--tx-gap);align-items:center;padding:9px 2px;border-top:1px solid var(--line)}
 .tx .main{min-width:0}
-.tx .t1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.tx .t1{white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;font-weight:500}
 .tx .t2{color:var(--dim);font-size:11.5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.tx .tcat,.tx .tdate{font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx .tcat,.tx .tdate{font-size:12px;color:var(--mut);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .tx .tdate{text-transform:capitalize}
 .tag{border:1px solid var(--line2);color:var(--mut);border-radius:999px;padding:0 7px;font-size:11px;line-height:17px}
 .tx .amt2{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
@@ -442,8 +442,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .upitem{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
 .upitem:first-of-type{border-top:0;padding-top:0}
 .upmain{min-width:0;flex:1}
-.upname{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.upmeta{font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upname{font-size:13px;font-weight:500;white-space:normal;overflow-wrap:break-word}
+.upmeta{font-size:11.5px;color:var(--dim);white-space:normal;overflow-wrap:break-word}
 .upmeta .over{color:var(--bad)}
 .upmeta .soon{color:var(--warn)}
 .upmeta .paid{color:var(--good)}
@@ -457,16 +457,31 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .recform .lab{display:block;color:var(--mut);font-size:11.5px;margin:0 0 5px}
 .recform .field{padding:8px 10px}
 .recform .primary{padding:9px 14px}
+@media (min-width:768px){
+  /* Desktop: the fixed-payments card is only half of the bento grid, so the
+     five fields plus the button need two rows instead of one cramped row. */
+  .recform{
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    column-gap:10px;row-gap:12px;
+  }
+  .recform>:nth-child(1){grid-column:1/7;grid-row:1}    /* Nombre */
+  .recform>:nth-child(2){grid-column:7/10;grid-row:1}  /* Monto */
+  .recform>:nth-child(3){grid-column:10/13;grid-row:1} /* Día de vencimiento */
+  .recform>:nth-child(4){grid-column:1/5;grid-row:2}   /* Categoría */
+  .recform>:nth-child(5){grid-column:5/9;grid-row:2}   /* Cuenta */
+  .recform>:nth-child(6){grid-column:9/13;grid-row:2;justify-self:end} /* Agregar pago fijo */
+  .recform .primary{width:auto;max-width:100%;white-space:nowrap}
+}
 .recsep{height:1px;background:var(--line);margin:4px 0 6px}
 .reclist{display:flex;flex-direction:column}
 .recitem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
 .recitem:first-child{border-top:0}
 .recmain{display:flex;gap:10px;align-items:center;min-width:0}
 .recinfo{min-width:0}
-.recname{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.recmeta{font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recname{font-size:13px;font-weight:500;white-space:normal;overflow-wrap:break-word}
+.recmeta{font-size:11.5px;color:var(--dim);white-space:normal;overflow-wrap:break-word}
 .recright{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.recstatus{font-size:11.5px;color:var(--dim);white-space:nowrap}
+.recstatus{font-size:11.5px;color:var(--dim);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .recstatus.over{color:var(--bad)}
 .recstatus.soon{color:var(--warn)}
 .recstatus.paid{color:var(--good)}
@@ -490,8 +505,8 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .accttop{display:flex;align-items:center;gap:9px;min-width:0}
 .accticon{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:10px;background:rgba(138,164,255,.12);color:var(--accent)}
 .accticon svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.acctname{display:block;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis}
-.accttype{display:block;font-size:11px;color:var(--dim)}
+.acctname{display:block;min-width:0;font-size:13.5px;font-weight:600;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
+.accttype{display:block;font-size:11px;color:var(--dim);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .acctbal{display:block;margin:11px 0 2px;font:600 20px/1.15 var(--fd);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .acctbal.neg{color:var(--bad)}
 .acctmeta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--mut)}
@@ -507,11 +522,11 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
 .xflist{display:flex;flex-direction:column}
 .xfrow{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto 30px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .xfrow:first-of-type{border-top:0}
-.xfwho{min-width:0;font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.xfwho{min-width:0;font-size:12.5px;font-weight:500;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .xfwho small{display:block;font-size:11px;font-weight:400;color:var(--dim)}
 .xfamt{text-align:right;font:600 13px var(--fd);font-variant-numeric:tabular-nums}
 .xfamt small{display:block;font:400 11px var(--ff);color:var(--mut)}
-.xfdate{font-size:11.5px;color:var(--dim);white-space:nowrap}
+.xfdate{font-size:11.5px;color:var(--dim);white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .accform,.xfedit{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--s2)}
 .accform .wide,.xfedit .wide{grid-column:1/-1}
 .accform .lab,.xfedit .lab{display:block;font-size:11.5px;color:var(--mut);margin:0 0 5px}
@@ -595,6 +610,79 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .transferhdr span{display:none}
   .transferhdr{padding:9px 11px}
 }
+@media (max-width:767px){
+  /* Upcoming: icon + complete text on the first row, amount and action
+     below it, using the same clean two-level layout as fixed payments. */
+  .upitem{
+    display:grid;
+    grid-template-columns:36px minmax(0,1fr) max-content;
+    column-gap:10px;row-gap:8px;
+    align-items:start;
+  }
+  .upitem>.item-icon{grid-column:1;grid-row:1}
+  .upmain{grid-column:2/4;grid-row:1;min-width:0}
+  .upamt{grid-column:2;grid-row:2;justify-self:start;align-self:center;margin-left:0}
+  .upitem>.paybtn{grid-column:3;grid-row:2;justify-self:end;align-self:center;margin-left:0}
+
+  /* Movements: full-width top block (icon + title/tags + category on one
+     clean line), then amount + actions on a single bottom row. The date is
+     redundant with the day header, so it is hidden on phones. */
+  #list .th{display:none}
+  #list{--tx-gap:8px}
+  .tx{
+    display:grid;
+    grid-template-columns:36px minmax(0,1fr) max-content;
+    column-gap:10px;row-gap:2px;
+    align-items:start;
+    padding:10px 2px;
+  }
+  .tx>.item-icon{grid-column:1;grid-row:1;align-self:start}
+  .tx .main{grid-column:2/4;grid-row:1;min-width:0;max-width:100%}
+  .tx .tcat{
+    grid-column:2/4;grid-row:2;min-width:0;
+    display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    overflow-wrap:normal;word-break:normal;hyphens:none;-webkit-hyphens:none;
+  }
+  .tx .tdate{display:none}
+  .tx .amt2{grid-column:2;grid-row:3;justify-self:start;text-align:left;align-self:center;margin-top:6px}
+  .tx .acts{grid-column:3;grid-row:3;justify-self:end;align-self:center;margin-top:6px}
+  .tx-edit{grid-column:1/-1}
+
+  /* Debts: title/details full width, amount + actions below. */
+  .dbtitem{
+    display:grid;
+    grid-template-columns:36px minmax(0,1fr) auto;
+    gap:6px 10px;
+    align-items:start;
+  }
+  .dbtitem>.item-icon{grid-column:1;grid-row:1}
+  .dbtmain{grid-column:2/4;grid-row:1;min-width:0}
+  .dbtitem .dbtamt{grid-column:2/4;grid-row:2;justify-self:start;text-align:left;align-self:center}
+  .dbtitem .dbtacts{grid-column:2;grid-row:3;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;align-self:center}
+  .dbtitem .settlebtn{grid-column:2;grid-row:3;justify-self:start;align-self:center}
+  .dbtitem .dbterm{grid-column:3;grid-row:3;justify-self:end;align-self:center}
+  .payhist{grid-column:1/-1}
+
+  /* Accounts: keep actions usable without squeezing names. */
+  .accttop{align-items:flex-start}
+  .acctacts{width:100%;justify-content:flex-start;margin-top:8px}
+
+  /* Transfers: date and delete below, content full width. */
+  .xfrow{grid-template-columns:32px minmax(0,1fr) auto;gap:6px 10px;align-items:start}
+  .xfrow>.item-icon{grid-column:1;grid-row:1}
+  .xfwho{grid-column:2/4;grid-row:1}
+  .xfamt{grid-column:2;grid-row:2;justify-self:start;text-align:left}
+  .xfdate{grid-column:2;grid-row:3;justify-self:start}
+  .xfrow .xfdel,.xfrow .icon.danger{grid-column:3;grid-row:2/4;justify-self:end;align-self:center}
+
+  /* Goals: stack form controls. */
+  .gform{flex-direction:column}
+  .gform .primary,.gform .ghost{width:100%}
+
+  /* Fixed payments: stack amount/status/actions below title. */
+  .recitem{grid-template-columns:1fr;gap:8px}
+  .recright{justify-content:flex-start;padding-left:46px;flex-wrap:wrap}
+}
 @media (max-width:760px){
   .top .monthnav{order:3;width:100%;justify-content:space-between;margin-left:0}
   .monthnav .ml{flex:1}
@@ -602,8 +690,6 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .viewtabs button{padding:8px 4px}
   .addhdr span:last-child{display:none}
   .addhdr{padding:9px 12px}
-  #list{--tx-cols:36px minmax(0,1fr) 88px 64px}
-  .th .c-cat,.th .c-date,.tx .tcat,.tx .tdate{display:none}
   .recform{grid-template-columns:1fr 1fr}
   .recform .wide{grid-column:1/-1}
   .recform .primary{grid-column:1/-1}
@@ -618,16 +704,13 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .top{gap:8px 10px}
   .listtools .add-inline{flex:1 1 100%}
   #list{--tx-cols:36px minmax(0,1fr) 82px 58px;--tx-gap:7px}
-  .upitem{flex-wrap:wrap}
-  .upamt{margin-left:46px}
-  .paybtn{margin-left:46px}
   .recitem{grid-template-columns:1fr}
   .recright{justify-content:flex-start;padding-left:46px}
   .del,.edt{min-width:26px;padding:0 3px}
   .dbtotals{grid-template-columns:1fr 1fr}
   .dbtot.net{grid-column:1/-1}
-  .dbtitem{grid-template-columns:32px minmax(0,1fr) auto;row-gap:6px}
-  .dbtitem .dbtamt,.dbtitem .settlebtn,.dbtitem .dbterm{grid-column:2/4;justify-self:start}
+  .dbtitem{grid-template-columns:32px minmax(0,1fr);row-gap:6px}
+  .dbtitem .dbtamt,.dbtitem .dbtacts,.dbtitem .settlebtn,.dbtitem .dbterm{grid-column:2;justify-self:start}
   .dbtitem .dbtamt{text-align:left}
   .fxform{grid-template-columns:1fr}
   .acctgrid{grid-template-columns:1fr}
@@ -639,10 +722,35 @@ select.field{appearance:none;-webkit-appearance:none;background-image:linear-gra
   .accfilter select{min-width:0;max-width:100%;width:100%}
   .xfrow{grid-template-columns:28px minmax(0,1fr) auto;row-gap:4px}
   .xfrow .xfdate{grid-column:2;justify-self:start}
-  .xfrow .xfdel{grid-column:3;justify-self:end}
+  .xfrow .xfdel,.xfrow .icon.danger{grid-column:3;justify-self:end}
 }
 @media (prefers-reduced-motion:reduce){
   #toast{transition:none}
   .viewtabs button,.donut .seg,.drow,.kpi,.chart .dpt{transition:none}
   .kpi:hover{transform:none}
+}
+
+/* v1.6.0 — partial debt payments and non-intrusive update notice */
+.payform{grid-template-columns:1fr 1fr}
+.payprog{display:block;margin-top:3px;font-size:11px;color:var(--dim)}
+.dbtacts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.dbtacts .paybtn{margin-left:0}
+.payhist{margin:0 0 8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--s1);font-size:11.5px;color:var(--mut)}
+.payhist summary{cursor:pointer;color:var(--dim)}
+.payrow{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-top:1px solid var(--line)}
+.payrow b{color:var(--fg);font-variant-numeric:tabular-nums}
+.updatebar{
+  position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);z-index:60;
+  display:flex;align-items:center;gap:12px;
+  width:max-content;max-width:calc(100% - 24px);
+  padding:9px 12px;border:1px solid var(--line2);border-radius:12px;
+  background:var(--s2);box-shadow:0 12px 32px rgba(0,0,0,.45);
+  color:var(--mut);font-size:12px;line-height:1.35
+}
+.updatebar[hidden]{display:none}
+.updatebar .ghost{flex:none;padding:6px 10px;font-size:12px;white-space:nowrap}
+@media (max-width:640px){
+  .dbtitem .dbtacts{grid-column:2;justify-self:start}
+  .updatebar{width:calc(100% - 24px);justify-content:space-between}
 }

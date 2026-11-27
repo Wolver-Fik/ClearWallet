@@ -97,6 +97,9 @@
   }
   function pad(n) { return String(n).padStart(2, '0'); }
   function r2(n) { return Math.round(n * 100) / 100; }
+  /* Las tasas se guardan con 6 decimales: redondearlas a 2 destruye pares
+     como 1 JPY = 0.0066 EUR. Los importes siguen redondeandose a 2. */
+  function rate6(n) { return Math.round(n * 1000000) / 1000000; }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
   function ymOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
@@ -243,9 +246,13 @@
     hor: false, filter: 'all', accountFilter: 'all', query: '', limit: 60, confirmDel: null, confirmDelAcc: null, confirmReset: false,
     openSettings: false, openAdd: false, openAcc: false, openXf: false,
     editTx: null, recDraft: null, debtDraft: null, fxDraft: null,
-    addAcc: '', accDraft: null, editAccount: null, xfDraft: null
+    addAcc: '', accDraft: null, editAccount: null, xfDraft: null,
+    payDraft: null
   };
   var demoCache = null;
+  /* Cuentas cuyo saldo no se puede calcular sin una tasa falta (se avisa,
+     nunca se inventa un 1:1). */
+  var balanceMissing = {};
 
   function defaultCats() {
     return DEFAULT_EXP_IDS.map(function (id) { return { id: id, name: t('cat.' + id), budget: 0 }; });
@@ -305,16 +312,21 @@
     (Array.isArray(raw) ? raw : []).forEach(function (x) {
       if (!x || typeof x !== 'object') return;
       var from = String(x.from || ''), to = String(x.to || '');
-      var a = Number(x.a != null ? x.a : x.amount), rate = Number(x.rate != null ? x.rate : 1);
+      var a = Number(x.a != null ? x.a : x.amount), rate = Number(x.rate != null ? x.rate : NaN);
       var d = String(x.d || x.date || '');
       var id = String(x.id || '');
       if (!(a > 0) || !ids[from] || !ids[to] || from === to || (id && seen[id])) return;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) d = TODAY_ISO;
+      if (!isFinite(rate) || !(rate > 0)) rate = 1;
+      var cur = String(x.cur || '').toUpperCase();
+      if (!/^[A-Z]{3}$/.test(cur)) cur = '';
+      var orig = Number(x.orig);
       id = id || ('xf' + uid());
       seen[id] = 1;
       out.push({
         id: id.slice(0, 40), from: from, to: to, a: r2(a),
-        rate: (isFinite(rate) && rate > 0) ? rate : 1,
+        cur: cur, orig: isFinite(orig) && orig > 0 ? r2(orig) : r2(a),
+        rate: rate6(rate),
         d: d, n: String(x.n || x.note || '').trim().slice(0, 60)
       });
     });
@@ -341,13 +353,42 @@
     yms.forEach(function (ym) { getTx(ym).forEach(function (x) { out.push(x); }); });
     return out;
   }
+  /* Importe exacto de un movimiento en la moneda de la cuenta. Se prefiere
+     `orig` cuando el movimiento ya está en esa divisa; `a` solo se usa como
+     importe en la moneda principal y se convierte con una tasa real. */
+  function txInCurrency(x, cur, base) {
+    if (!x || !(x.a > 0)) return 0;
+    var own = x.cur || '';
+    if (own === cur && x.orig > 0) return r2(x.orig);
+    if (!own || own === base) {
+      if (cur === base) return r2(x.a);
+      var r = fxRate(base, cur);
+      return r == null ? null : r2(x.a * r);
+    }
+    if (own === cur) {
+      /* Sin `orig`, `a` esta en la moneda base: hay que convertirlo. */
+      if (cur === base) return r2(x.a);
+      var rb = fxRate(base, cur);
+      return rb == null ? null : r2(x.a * rb);
+    }
+    var direct = fxRate(own, cur);
+    if (direct != null && x.orig > 0) return r2(x.orig * direct);
+    var toBase = fxRate(own, base), fromBase = fxRate(base, cur);
+    if (toBase == null || fromBase == null) return null;
+    return r2((x.orig > 0 ? x.orig * toBase : x.a) * fromBase);
+  }
   function accountBalance(a) {
     if (!a) return 0;
+    var base = getCfg().cur, own = a.cur || base;
     var b = a.initial || 0;
     balanceTx().forEach(function (x) {
       if (x.acc !== a.id) return;
-      b += x.t === 'i' ? x.a : -x.a;
+      var v = txInCurrency(x, own, base);
+      if (v == null) { balanceMissing[a.id] = own; return; }
+      b += x.t === 'i' ? v : -v;
     });
+    /* `a` esta siempre en la divisa de la cuenta de origen y `rate` es el
+       numero de unidades de la divisa de destino por unidad de origen. */
     getTransfers().forEach(function (x) {
       if (x.from === a.id) b -= x.a;
       if (x.to === a.id) b += x.a * x.rate;
@@ -355,13 +396,18 @@
     return r2(b);
   }
   function consolidatedBalance() {
-    var base = getCfg().cur, total = 0, missing = 0;
+    var base = getCfg().cur, total = 0, missing = 0, currencies = {};
     getAccounts().forEach(function (a) {
-      var r = fxRate(a.cur, base);
-      if (r == null && a.cur !== base) { missing++; r = 1; }
-      total += accountBalance(a) * r;
+      var bal = accountBalance(a);
+      var r = a.cur === base ? 1 : fxRate(a.cur, base);
+      /* Sin tasa no se suma la cuenta: nunca se asume 1:1. */
+      if (r == null) {
+        if (a.cur !== base) { missing++; currencies[a.cur] = 1; }
+        return;
+      }
+      total += bal * r;
     });
-    return { total: r2(total), missing: missing };
+    return { total: r2(total), missing: missing, currencies: Object.keys(currencies) };
   }
   function normalizeState(raw) {
     var d = Storage.migrateData(raw || {});
@@ -373,6 +419,9 @@
     var valid = {};
     d.accounts.forEach(function (a) { valid[a.id] = 1; });
     d.cfg.recurring.forEach(function (r) { if (!valid[r.acc]) r.acc = main; });
+    d.cfg.debts.forEach(function (d0) {
+      (d0.payments || []).forEach(function (p) { if (p.acc && !valid[p.acc]) p.acc = main; });
+    });
     Object.keys(d.months).forEach(function (k) {
       d.months[k].forEach(function (tx) { if (!valid[tx.acc]) tx.acc = main; });
     });
@@ -408,7 +457,7 @@
     Object.keys(raw).forEach(function (k) {
       if (!/^[A-Z]{3}>[A-Z]{3}$/.test(k)) return;
       var v = Number(raw[k]);
-      if (isFinite(v) && v > 0) out[k] = v;
+      if (isFinite(v) && v > 0) out[k] = rate6(v);
     });
     return out;
   }
@@ -422,6 +471,23 @@
       if (!name || !isFinite(amount) || !(amount > 0) || !/^[A-Z]{3}$/.test(cur)) return null;
       var date = /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : TODAY_ISO;
       var settledAt = /^\d{4}-\d{2}-\d{2}$/.test(d.settledAt) ? d.settledAt : '';
+      var payments = [];
+      (Array.isArray(d.payments) ? d.payments : []).forEach(function (p) {
+        if (!p || typeof p !== 'object') return;
+        var pa = Number(p.amount), pr = Number(p.rate);
+        var pcur = String(p.cur || cur).toUpperCase();
+        if (!(pa > 0) || !isFinite(pa) || !/^[A-Z]{3}$/.test(pcur) || !(pr > 0) || !isFinite(pr)) return;
+        payments.push({
+          id: String(p.id || ('dp' + uid())),
+          d: /^\d{4}-\d{2}-\d{2}$/.test(p.d) ? p.d : TODAY_ISO,
+          amount: r2(pa), cur: pcur,
+          acc: String(p.acc || ''),
+          a: isFinite(Number(p.a)) ? r2(Number(p.a)) : r2(pa * pr),
+          rate: rate6(pr),
+          note: String(p.note || '').slice(0, 60)
+        });
+      });
+      var totalPaid = payments.reduce(function (s, p) { return s + p.amount; }, 0);
       return {
         id: String(d.id || ('d' + uid())),
         name: name,
@@ -429,9 +495,12 @@
         cur: cur,
         note: String(d.note || '').slice(0, 60),
         dir: d.dir === 'owed' ? 'owed' : 'lent',
-        settled: !!d.settled,
+        /* Un respaldo puede traer `settled` sin cuotas: se conserva. Si hay
+           cuotas que ya cubren el importe, se marca como liquidado. */
+        settled: !!d.settled || (payments.length > 0 && totalPaid >= amount - 0.005),
         date: date,
-        settledAt: settledAt
+        settledAt: settledAt,
+        payments: payments
       };
     }).filter(Boolean);
   }
@@ -529,11 +598,15 @@
   }
   function demoTransfers() {
     var cur = getCfg().cur, k = scaleFor(cur);
-    var toUsd = fxRate(cur, 'USD') == null ? 1 : fxRate(cur, 'USD');
+    /* Datos de ejemplo: si no hay tasa real se usa la escala indicativa del
+       propio demo (nunca se presenta como una tasa guardada). */
+    var toUsd = fxRate(cur, 'USD');
+    if (toUsd == null) toUsd = 1 / scaleFor(cur);
     var dayA = pad(clamp(NOW.getDate(), 1, 10)), dayB = pad(clamp(NOW.getDate(), 1, 15));
     return [
       {
-        id: 'dt-save', from: 'da-bank', to: 'da-save', a: nice(300 * k), rate: r2(toUsd),
+        id: 'dt-save', from: 'da-bank', to: 'da-save', a: nice(300 * k), rate: rate6(toUsd),
+        cur: cur, orig: nice(300 * k),
         d: TODAY_YM + '-' + dayA, n: t('transfer.demoSavings')
       },
       {
@@ -645,20 +718,31 @@
     if (due.days <= 3) return 'soon';
     return '';
   }
-  function dueStatusText(due) {
-    if (due.paid) return t('fixed.paid');
-    if (due.days < 0) return tn('fixed.overdue', -due.days);
-    if (due.days === 0) return t('fixed.dueToday');
-    return tn('fixed.dueIn', due.days);
+  function isIncomeRec(rec) { return !!rec && rec.type === 'i'; }
+  function dueStatusText(due, income) {
+    var prefix = income ? 'fixed.income.' : 'fixed.';
+    if (due.paid) return t(prefix + 'paid');
+    if (due.days < 0) return tn(prefix + 'overdue', -due.days);
+    if (due.days === 0) return t(prefix + 'dueToday');
+    return tn(prefix + 'dueIn', due.days);
   }
-  function recActionLabel(rec) { return rec.type === 'i' ? t('add.incomeBtn') : t('fixed.payNow'); }
+  function recPaidLabel(rec) { return t(isIncomeRec(rec) ? 'fixed.income.paid' : 'fixed.paid'); }
+  function recActionLabel(rec) { return isIncomeRec(rec) ? t('add.incomeBtn') : t('fixed.payNow'); }
 
   /* ---------- persistence ---------- */
+  /* Storage.save devuelve la promesa real de IndexedDB. Solo mostramos el
+     aviso de exito cuando la escritura se ha confirmado. */
   function lsSave() {
-    if (!S.demo) Storage.save({ cfg: S.cfg, months: S.months, accounts: S.accounts, transfers: S.transfers });
+    if (S.demo) return null;
+    return Storage.save({ cfg: S.cfg, months: S.months, accounts: S.accounts, transfers: S.transfers });
   }
-  function persistCfg() { lsSave(); }
-  function persistMonth() { lsSave(); }
+  function persistCfg() { return lsSave(); }
+  function persistMonth() { return lsSave(); }
+  function saved(fn) {
+    var p = lsSave();
+    if (!p || !p.then) { fn(); return; }
+    p.then(function (ok) { if (ok) fn(); });
+  }
 
   /* Storage without movements AND without recurring payments means "fresh":
      fall back to the enriched demo so the donut and evolution curve are full. */
@@ -726,6 +810,8 @@
     hor.style.display = S.type === 'g' ? '' : 'none';
     hint.style.display = S.type === 'g' ? '' : 'none';
     add.textContent = t(S.type === 'g' ? 'add.expenseBtn' : 'add.incomeBtn');
+    var note = $('#note');
+    if (note) note.placeholder = t(S.type === 'g' ? 'add.notePlaceholder' : 'add.notePlaceholderIncome');
   }
 
   function setView(v) {
@@ -765,6 +851,8 @@
     if (S.openSettings) renderSettings();
     if (S.openAcc) { captureAccForm(); renderAccountForm(); }
     if (S.openXf) { captureXfForm(); renderTransferForm(); }
+    var bar = document.getElementById('updatebar');
+    if (bar && !bar.hidden) updateBar(true);
   }
 
   /* ---------- actions ---------- */
@@ -865,6 +953,7 @@
     S.recDraft = null;
     S.debtDraft = null;
     S.fxDraft = null;
+    S.payDraft = null;
     resetSearch();
     var dt = $('#dt');
     if (dt) dt.value = defaultDate(S.viewYM);
@@ -900,6 +989,17 @@
     sel.value = S.addAcc;
     var tag = $('#curtag');
     if (tag) tag.textContent = accCur(S.addAcc);
+    updateConvHint();
+  }
+  function updateConvHint() {
+    var el = $('#conv-hint');
+    if (!el) return;
+    var amt = parseAmount($('#amt') ? $('#amt').value : '');
+    var src = accCur(S.addAcc), base = getCfg().cur;
+    var r = src === base ? 1 : fxRate(src, base);
+    if (!(amt > 0)) { el.textContent = ''; return; }
+    if (r == null) { el.textContent = t('accounts.rateMissing'); return; }
+    el.textContent = src === base ? '' : t('add.converted', { amount: moneyCur(r2(amt * r), base), base: base, rate: rate6(r) });
   }
 
   function renderChips() {
@@ -954,20 +1054,14 @@
     var accSel = $('#add-acc');
     var acc = accById(accSel ? accSel.value : S.addAcc, S.accounts);
     if (!acc) acc = S.accounts[0];
-    var srcCur = acc ? acc.cur : getCfg().cur;
-    var base = getCfg().cur;
-    var conv = srcCur === base ? 1 : fxRate(srcCur, base);
-    if (conv == null) { conv = 1; toast(t('accounts.rateMissing')); }
-    var baseAmt = r2(amt * conv);
-    var tx = {
-      id: uid(), t: S.type, a: baseAmt, c: S.cat,
-      n: $('#note').value.trim().slice(0, 60), d: date,
-      h: S.type === 'g' && S.hor ? 1 : 0, r: '',
-      acc: acc ? acc.id : '', cur: srcCur, orig: r2(amt)
-    };
-    if (!S.months[ym]) S.months[ym] = [];
-    S.months[ym].push(tx);
-    persistMonth(ym);
+    var tx = makeTx({
+      amount: amt, cur: acc ? acc.cur : getCfg().cur, t: S.type, cat: S.cat,
+      n: $('#note').value, d: date, h: S.type === 'g' && S.hor, r: '',
+      acc: acc ? acc.id : ''
+    });
+    /* requireRate ya ha pedido la tasa; si se cancela, no se guarda nada. */
+    if (!tx) { toast(t('fx.rateRequired')); return; }
+    commitTx(tx);
     var moved = ym !== S.viewYM;
     if (moved) { S.viewYM = ym; }
     $('#amt').value = '';
@@ -978,9 +1072,11 @@
     $('#hor').classList.remove('on');
     $('#hor').setAttribute('aria-pressed', 'false');
     updateIconPreview();
+    updateConvHint();
     renderAll();
     var msg = t(tx.t === 'g' ? 'add.addedExpense' : 'add.addedIncome', { amount: money(tx.a) });
-    toast(moved ? t('add.addedInMonth', { msg: msg, month: monthLabel(ym) }) : msg);
+    var finalMsg = moved ? t('add.addedInMonth', { msg: msg, month: monthLabel(ym) }) : msg;
+    saved(function () { toast(finalMsg); });
     closeAdd();
   }
 
@@ -1003,14 +1099,17 @@
     if (!tx) return;
     var amt = parseAmount($('#edit-amt').value);
     if (!(amt > 0)) { toast(t('add.amountError')); $('#edit-amt').focus(); return; }
-    var rate = tx.orig > 0 ? tx.a / tx.orig : 1;
-    tx.orig = r2(amt);
-    tx.a = r2(amt * rate);
+    /* La edicion se hace en la moneda original del movimiento y se guarda
+       con una tasa real; nunca se reutiliza un 1:1 silencioso. */
+    var info = txAmountInfo(amt, tx.cur || accCur(tx.acc));
+    if (!info) { toast(t('fx.rateRequired')); return; }
+    tx.orig = info.orig;
+    tx.a = info.a;
+    tx.cur = info.cur;
     tx.n = ($('#edit-note').value || '').trim().slice(0, 60);
     S.editTx = null;
-    persistMonth(S.viewYM);
     renderAll();
-    toast(t('list.updated'));
+    saved(function () { toast(t('list.updated')); });
   }
 
   function gotoMonth(ym) {
@@ -1061,33 +1160,37 @@
   }
 
   function payRecurring(id) {
+    if (S.demo) ensureEditable();
     var cfg = getCfg();
     var rec = (cfg.recurring || []).find(function (r) { return r.id === id; });
     if (!rec) return;
     if (isRecPaid(rec, TODAY_YM)) { toast(t('fixed.alreadyPaid', { name: rec.name })); return; }
     var item = { id: rec.id, name: rec.name, amount: rec.amount, day: rec.day, cat: rec.cat, type: rec.type || 'g', acc: rec.acc || '' };
     if (S.demo) {
-      ensureEditable();
+      /* Al pasar de demo a datos reales el pago fijo debe existir para poder
+         marcarse como pagado; se crea antes de validar la conversion. */
       if (!S.cfg.recurring) S.cfg.recurring = [];
       S.cfg.recurring.push(item);
-      persistCfg();
-      renderChips();
     }
-    var ym = TODAY_YM;
-    var tx = {
-      id: uid(), t: item.type === 'i' ? 'i' : 'g', a: r2(item.amount),
-      c: item.cat || (item.type === 'i' ? INCOME_IDS[0] : ((S.cfg.cats[0] && S.cfg.cats[0].id) || 'otr')),
-      n: item.name.slice(0, 60), d: TODAY_ISO, h: 0, r: item.id,
-      acc: item.acc || (S.accounts[0] ? S.accounts[0].id : '')
-    };
-    if (!S.months[ym]) S.months[ym] = [];
-    S.months[ym].push(tx);
-    persistMonth(ym);
-    S.viewYM = ym;
+    var acc = accById(item.acc, S.accounts) || S.accounts[0];
+    var tx = makeTx({
+      amount: item.amount, cur: acc ? acc.cur : cfg.cur,
+      t: item.type === 'i' ? 'i' : 'g',
+      cat: item.cat || (item.type === 'i' ? INCOME_IDS[0] : ((S.cfg.cats[0] && S.cfg.cats[0].id) || 'otr')),
+      n: item.name, d: TODAY_ISO, h: 0, r: item.id,
+      acc: acc ? acc.id : ''
+    });
+    if (!tx) {
+      if (S.demo && !rec) S.cfg.recurring = S.cfg.recurring.filter(function (r) { return r.id !== item.id; });
+      toast(t('fx.rateRequired'));
+      return;
+    }
+    commitTx(tx);
+    S.viewYM = TODAY_YM;
     S.editTx = null;
     resetSearch();
     renderAll();
-    toast(t('fixed.paidToast', { name: item.name, amount: money(item.amount) }));
+    saved(function () { toast(t('fixed.paidToast', { name: item.name, amount: money(tx.a) })); });
   }
 
   /* ---------- render ---------- */
@@ -1106,6 +1209,7 @@
     renderGoal();
     renderHistory();
     renderList();
+    updateConvHint();
   }
 
   var CURRENCY_FALLBACK = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'KRW', 'INR', 'BRL', 'ARS', 'MXN', 'CLP', 'COP', 'PEN', 'UYU', 'PYG', 'BOB', 'VES', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'TRY', 'ZAR', 'AED', 'SAR', 'ILS', 'SGD', 'HKD', 'NZD', 'THB', 'IDR', 'MYR', 'PHP', 'VND', 'EGP', 'NGN', 'KES', 'MAD', 'UAH', 'RSD', 'ISK', 'TWD', 'PKR', 'BDT', 'LKR', 'NPR'];
@@ -1654,10 +1758,10 @@
     var show = items.slice(0, 4);
     var html = show.map(function (it) {
       var r = it.rec, due = it.due, cls = dueClass(due);
-      var status = dueStatusText(due);
+      var status = dueStatusText(due, isIncomeRec(r));
       var when = new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short' }).format(due.date);
       var pay = due.paid
-        ? '<button type="button" class="paybtn" disabled>' + esc(t('fixed.paid')) + '</button>'
+        ? '<button type="button" class="paybtn" disabled>' + esc(recPaidLabel(r)) + '</button>'
         : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(recActionLabel(r)) + '</button>';
       return '<div class="upitem">' +
         getItemIcon({ n: r.name, c: r.cat, t: 'g' }) +
@@ -1703,9 +1807,9 @@
     } else {
       var itemCards = items.map(function (it) {
         var r = it.rec, due = it.due, cls = dueClass(due);
-        var status = dueStatusText(due);
+        var status = dueStatusText(due, isIncomeRec(r));
         var pay = due.paid
-          ? '<button type="button" class="paybtn" disabled>' + esc(t('fixed.paid')) + '</button>'
+          ? '<button type="button" class="paybtn" disabled>' + esc(recPaidLabel(r)) + '</button>'
           : '<button type="button" class="paybtn" data-act="pay" data-id="' + esc(r.id) + '">' + esc(recActionLabel(r)) + '</button>';
         var rm = S.demo ? '' : '<button type="button" class="recrm" data-act="del-rec" data-id="' + esc(r.id) + '" aria-label="' + esc(t('fixed.deleteAria', { name: r.name })) + '">' +
           '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>';
@@ -1767,8 +1871,8 @@
     return '<div class="tx-edit">' +
       '<div class="tehead"><i class="dot" style="background:' + catColor(x.c) + '"></i><span>' + esc(catName(x)) + '</span><span class="muted">' + esc(dayLabel(x.d)) + '</span></div>' +
       '<div class="tefields">' +
-        '<div><label class="lab" for="edit-amt">' + t('list.editAmount') + '</label>' +
-        '<input class="field" id="edit-amt" inputmode="decimal" autocomplete="off" value="' + esc(String(x.a)) + '" data-id="' + esc(x.id) + '"></div>' +
+        '<div><label class="lab" for="edit-amt">' + t('list.editAmount') + ' · ' + esc(x.cur || accCur(x.acc)) + '</label>' +
+        '<input class="field" id="edit-amt" inputmode="decimal" autocomplete="off" value="' + esc(String(x.orig > 0 ? x.orig : x.a)) + '" data-id="' + esc(x.id) + '"></div>' +
         '<div><label class="lab" for="edit-note">' + t('list.editNote') + '</label>' +
         '<input class="field" id="edit-note" maxlength="60" autocomplete="off" value="' + esc(x.n) + '" data-id="' + esc(x.id) + '"></div>' +
       '</div>' +
@@ -1891,9 +1995,52 @@
     return null;
   }
 
+  /* Conversion estricta: sin tasa no hay resultado (nunca 1:1). */
   function convert(amount, from, to) {
     var r = fxRate(from, to);
-    return r == null ? r2(amount) : r2(amount * r);
+    return r == null ? null : r2(amount * r);
+  }
+  /* Pide la tasa cuando falta. Se guarda en cfg.rates antes de permitir
+     que se escriba la operacion que la necesita. */
+  function requireRate(from, to) {
+    from = String(from || '').toUpperCase();
+    to = String(to || '').toUpperCase();
+    if (!from || !to) return null;
+    var existing = fxRate(from, to);
+    if (existing != null) return existing;
+    var raw = window.prompt(t('fx.askRate', { from: from, to: to }), '');
+    if (raw == null) return null;
+    var v = parseAmount(raw);
+    if (!(v > 0)) { toast(t('fx.invalid')); return null; }
+    v = rate6(v);
+    getCfg().rates[rateKey(from, to)] = v;
+    persistCfg();
+    return v;
+  }
+  function txAmountInfo(amount, srcCur) {
+    if (!(amount > 0)) return null;
+    var base = getCfg().cur;
+    srcCur = String(srcCur || base).toUpperCase();
+    var r = srcCur === base ? 1 : requireRate(srcCur, base);
+    if (r == null) return null;
+    return { a: r2(amount * r), orig: r2(amount), cur: srcCur, rate: r };
+  }
+  function makeTx(o) {
+    var info = txAmountInfo(o.amount, o.cur);
+    if (!info) return null;
+    return {
+      id: uid(), t: o.t, a: info.a, c: o.cat,
+      n: String(o.n || '').trim().slice(0, 60), d: o.d || TODAY_ISO,
+      h: o.h ? 1 : 0, r: o.r || '',
+      acc: o.acc, cur: info.cur, orig: info.orig
+    };
+  }
+  function commitTx(tx) {
+    if (!tx) return false;
+    var ym = tx.d.slice(0, 7);
+    if (!S.months[ym]) S.months[ym] = [];
+    S.months[ym].push(tx);
+    return true;
   }
 
   function fxDraft() {
@@ -1922,7 +2069,7 @@
     if (from === to) { toast(t('fx.same')); return; }
     if (!(rate > 0)) { toast(t('fx.invalid')); $('#fx-rate').focus(); return; }
     captureFxForm();
-    getCfg().rates[rateKey(from, to)] = rate;
+    getCfg().rates[rateKey(from, to)] = rate6(rate);
     S.fxDraft.rate = '';
     persistCfg();
     renderSettings();
@@ -1971,14 +2118,21 @@
     if (auto) d.auto = auto.checked;
   }
 
+  function debtPaid(d) {
+    return r2((d.payments || []).reduce(function (s, p) { return s + p.amount; }, 0));
+  }
+  function debtOutstanding(d) {
+    return r2(Math.max((d.amount || 0) - debtPaid(d), 0));
+  }
   function debtTotals() {
     var cfg = getCfg(), cur = cfg.cur;
     var lent = 0, owed = 0, missing = 0;
     (cfg.debts || []).forEach(function (d) {
-      if (d.settled) return;
-      var r = fxRate(d.cur, cur);
-      if (r == null && d.cur !== cur) missing++;
-      var v = r2(d.amount * (r == null ? 1 : r));
+      var rest = debtOutstanding(d);
+      if (d.settled || rest <= 0) return;
+      var r = d.cur === cur ? 1 : fxRate(d.cur, cur);
+      if (r == null) { missing++; return; }
+      var v = r2(rest * r);
       if (d.dir === 'owed') owed += v; else lent += v;
     });
     return { lent: r2(lent), owed: r2(owed), net: r2(lent - owed), missing: missing };
@@ -2005,32 +2159,106 @@
     toast(t('debts.addedToast', { name: item.name }));
   }
 
+  function debtPayDraft(d) {
+    if (!S.payDraft || S.payDraft.id !== d.id) {
+      var lastAcc = (d.payments && d.payments.length && d.payments[d.payments.length - 1].acc) || '';
+      var acc = accById(lastAcc, S.accounts) || S.accounts[0];
+      S.payDraft = {
+        id: d.id, amount: String(debtOutstanding(d)),
+        acc: acc ? acc.id : '', date: TODAY_ISO, note: ''
+      };
+    }
+    return S.payDraft;
+  }
+  function capturePayForm() {
+    if (!S.payDraft) return;
+    var map = { 'pay-amt': 'amount', 'pay-acc': 'acc', 'pay-date': 'date', 'pay-note': 'note' };
+    Object.keys(map).forEach(function (id) {
+      var el = $('#' + id);
+      if (el) S.payDraft[map[id]] = el.value;
+    });
+  }
+  function openDebtPayment(id) {
+    ensureEditable();
+    var d = (S.cfg.debts || []).find(function (x) { return x.id === id; });
+    if (!d || d.settled) return;
+    S.payDraft = null;
+    debtPayDraft(d);
+    renderDebts();
+    var el = $('#pay-amt');
+    if (el) { el.focus(); el.select(); }
+  }
+  function closeDebtPayment() {
+    S.payDraft = null;
+    renderDebts();
+  }
+  /* Unico camino de escritura para abonos y liquidaciones: valida el saldo,
+     exige las tasas y genera el movimiento con la misma forma que addTx. */
+  function recordDebtPayment(d, amount, acc, date, note) {
+    var rest = debtOutstanding(d);
+    if (!(amount > 0) || amount > rest + 0.005) { toast(t('debts.paymentTooHigh')); return false; }
+    amount = r2(Math.min(amount, rest));
+    var base = S.cfg.cur, payCur = d.cur || base;
+    var info = txAmountInfo(amount, payCur);
+    if (!info) { toast(t('fx.rateRequired')); return false; }
+    var targetCur = acc ? (acc.cur || base) : base;
+    var toAcc = targetCur === payCur ? 1 : requireRate(payCur, targetCur);
+    if (toAcc == null) { toast(t('fx.rateRequired')); return false; }
+    /* El movimiento resultante se guarda en la divisa de la cuenta: hay que
+       poder convertirla tambien a la base antes de escribir el abono. */
+    if (S.cfg.debtAutoTx !== false && acc && targetCur !== base && requireRate(targetCur, base) == null) {
+      toast(t('fx.rateRequired'));
+      return false;
+    }
+    if (!d.payments) d.payments = [];
+    d.payments.push({
+      id: 'dp' + uid(), d: date, amount: amount, cur: payCur,
+      acc: acc ? acc.id : '', a: info.a, rate: info.rate,
+      note: String(note || '').slice(0, 60)
+    });
+    if (S.cfg.debtAutoTx !== false && acc) {
+      var tx = makeTx({
+        amount: r2(amount * toAcc), cur: targetCur,
+        t: d.dir === 'owed' ? 'g' : 'i',
+        cat: d.dir === 'owed' ? 'otr' : 'otri',
+        n: (d.name + ' · ' + t('debts.paymentTxNote')).slice(0, 60),
+        d: date, h: 0, r: ('debt:' + d.id).slice(0, 40), acc: acc.id
+      });
+      if (tx) commitTx(tx);
+    }
+    if (debtPaid(d) >= d.amount - 0.005) { d.settled = true; d.settledAt = date; }
+    return true;
+  }
+  function saveDebtPayment() {
+    capturePayForm();
+    if (!S.payDraft) return;
+    var d = (S.cfg.debts || []).find(function (x) { return x.id === S.payDraft.id; });
+    if (!d) { S.payDraft = null; renderDebts(); return; }
+    var amount = parseAmount(S.payDraft.amount);
+    if (!(amount > 0)) { toast(t('debts.paymentError')); var el = $('#pay-amt'); if (el) el.focus(); return; }
+    if (amount > debtOutstanding(d) + 0.005) { toast(t('debts.paymentTooHigh')); return; }
+    var acc = accById(S.payDraft.acc, S.accounts);
+    var msg = t('debts.paymentAdded', { amount: moneyCur(r2(amount), d.cur) });
+    var date = /^\d{4}-\d{2}-\d{2}$/.test(S.payDraft.date) ? S.payDraft.date : TODAY_ISO;
+    if (!recordDebtPayment(d, amount, acc, date, S.payDraft.note)) return;
+    S.payDraft = null;
+    renderAll();
+    saved(function () { toast(msg); });
+  }
   function settleDebt(id) {
     if (S.demo) loadDemo(true);
     var d = (S.cfg.debts || []).find(function (x) { return x.id === id; });
     if (!d || d.settled) return;
-    d.settled = true;
-    d.settledAt = TODAY_ISO;
-    if (S.cfg.debtAutoTx !== false) {
-      var tx = {
-        id: uid(), t: d.dir === 'owed' ? 'g' : 'i',
-        a: r2(convert(d.amount, d.cur, S.cfg.cur)),
-        c: d.dir === 'owed' ? 'otr' : 'otri',
-        n: (d.name + ' · ' + t('debts.txNote')).slice(0, 60),
-        d: TODAY_ISO, h: 0, r: ('debt:' + d.id).slice(0, 40),
-        acc: S.accounts[0] ? S.accounts[0].id : ''
-      };
-      if (!S.months[TODAY_YM]) S.months[TODAY_YM] = [];
-      S.months[TODAY_YM].push(tx);
-      persistMonth(TODAY_YM);
-    }
-    persistCfg();
+    var acc = accById((d.payments && d.payments.length && d.payments[d.payments.length - 1].acc) || '', S.accounts) || S.accounts[0];
+    var msg = t('debts.settledToast', { name: d.name });
+    if (!recordDebtPayment(d, debtOutstanding(d), acc, TODAY_ISO, '')) return;
     renderAll();
-    toast(t('debts.settledToast', { name: d.name }));
+    saved(function () { toast(msg); });
   }
 
   function delDebt(id) {
     if (S.demo) loadDemo(true);
+    if (S.payDraft && S.payDraft.id === id) S.payDraft = null;
     S.cfg.debts = (S.cfg.debts || []).filter(function (x) { return x.id !== id; });
     persistCfg();
     renderAll();
@@ -2070,31 +2298,65 @@
         '<button type="button" class="primary" data-act="debt-add">' + esc(t('debts.add')) + '</button></div>';
     }
 
+    var payForm = '';
+    if (!compact && !S.demo && S.payDraft) {
+      var pdDebt = (cfg.debts || []).find(function (x) { return x.id === S.payDraft.id; });
+      if (pdDebt && !pdDebt.settled) {
+        var pd = debtPayDraft(pdDebt);
+        var payAccs = getAccounts().map(function (a) {
+          return '<option value="' + esc(a.id) + '"' + (a.id === pd.acc ? ' selected' : '') + '>' + esc(a.name + ' · ' + a.cur) + '</option>';
+        }).join('');
+        payForm = '<div class="dbtform payform">' +
+          '<div class="wide"><b>' + esc(pdDebt.name) + '</b> · ' + esc(t('debts.remaining')) + ' ' + esc(moneyCur(debtOutstanding(pdDebt), pdDebt.cur)) + '</div>' +
+          '<div><label class="lab" for="pay-amt">' + esc(t('debts.payAmount')) + '</label>' +
+          '<input class="field" id="pay-amt" inputmode="decimal" autocomplete="off" value="' + esc(pd.amount) + '" placeholder="0"></div>' +
+          '<div><label class="lab" for="pay-acc">' + esc(t('debts.payAccount')) + '</label><select class="field" id="pay-acc">' + payAccs + '</select></div>' +
+          '<div><label class="lab" for="pay-date">' + esc(t('debts.payDate')) + '</label>' +
+          '<input class="field" id="pay-date" type="date" value="' + esc(pd.date) + '"></div>' +
+          '<div><label class="lab" for="pay-note">' + esc(t('debts.payNote')) + '</label>' +
+          '<input class="field" id="pay-note" maxlength="60" autocomplete="off" value="' + esc(pd.note) + '" placeholder="' + esc(t('debts.notePh')) + '"></div>' +
+          '<button type="button" class="ghost" data-act="debt-pay-cancel">' + esc(t('debts.payCancel')) + '</button>' +
+          '<button type="button" class="primary" data-act="debt-pay-save">' + esc(t('debts.paySave')) + '</button></div>';
+      }
+    }
+
     var list = '';
     if (!shown.length) {
       list = '<p class="empty">' + esc(t('debts.empty')) + '</p>';
     } else {
       list = '<div class="dbtlist">' + shown.map(function (x) {
         var dirCls = x.dir === 'owed' ? 'owed' : 'lent';
-        var base = moneyCur(convert(x.amount, x.cur, cfg.cur), cfg.cur);
-        var conv = x.cur !== cfg.cur ? '<small>≈ ' + esc(base) + '</small>' : '';
+        var cv = convert(x.amount, x.cur, cfg.cur);
+        var conv = (x.cur !== cfg.cur && cv != null) ? '<small>≈ ' + esc(moneyCur(cv, cfg.cur)) + '</small>' : '';
+        var paid = debtPaid(x), rest = debtOutstanding(x);
+        var progress = paid > 0 ? '<small class="payprog">' + esc(t('debts.paidSoFar')) + ' ' + esc(moneyCur(paid, x.cur)) +
+          ' · ' + esc(t('debts.remaining')) + ' ' + esc(moneyCur(rest, x.cur)) + '</small>' : '';
         var action = x.settled
           ? '<button type="button" class="paybtn" disabled>' + esc(t('debts.settled')) + '</button>'
-          : '<button type="button" class="paybtn settlebtn" data-act="debt-settle" data-id="' + esc(x.id) + '">' + esc(t('debts.settle')) + '</button>';
+          : '<span class="dbtacts"><button type="button" class="paybtn" data-act="debt-pay" data-id="' + esc(x.id) + '">' + esc(t('debts.payInstallment')) + '</button>' +
+            '<button type="button" class="paybtn settlebtn" data-act="debt-settle" data-id="' + esc(x.id) + '">' + esc(t('debts.settleRemaining')) + '</button></span>';
         var rm = S.demo ? '' : '<button type="button" class="dbterm" data-act="debt-del" data-id="' + esc(x.id) + '" aria-label="' + esc(t('debts.deleteAria', { name: x.name })) + '">' +
           '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>';
-        return '<div class="dbtitem' + (x.settled ? ' done' : '') + '">' +
+        var hist = '';
+        if (x.payments && x.payments.length) {
+          hist = '<details class="payhist"><summary>' + esc(t('debts.payments') + ': ' + x.payments.length) + '</summary>' +
+            x.payments.map(function (p) {
+              return '<div class="payrow"><span>' + esc(p.d) + (p.note ? ' · ' + esc(p.note) : '') + '</span>' +
+                '<b>' + esc(moneyCur(p.amount, p.cur)) + (p.a ? ' ≈ ' + esc(money(p.a)) : '') + '</b></div>';
+            }).join('') + '</details>';
+        }
+        return '<div class="dbtentry"><div class="dbtitem' + (x.settled ? ' done' : '') + '">' +
           '<span class="item-icon" aria-hidden="true" style="background:' + (dirCls === 'owed' ? '#ef4444' : '#059669') + ';color:#fff">' +
             '<svg viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 013 3v7a3 3 0 01-3 3H3z"/><path d="M3 7V4.8h13V7M16 13.5h4"/></svg></span>' +
           '<div class="dbtmain"><div class="t1">' + esc(x.name) + '</div><div class="dbtmeta"><span class="dbtdir ' + dirCls + '">' + esc(t('debts.' + dirCls)) + '</span>' +
             (x.note ? ' · ' + esc(x.note) : '') + '</div></div>' +
-          '<div class="dbtamt">' + esc(moneyCur(x.amount, x.cur)) + conv + '</div>' + action + rm + '</div>';
+          '<div class="dbtamt">' + esc(moneyCur(x.amount, x.cur)) + conv + progress + '</div>' + action + rm + '</div>' + hist + '</div>';
       }).join('') + '</div>';
     }
     var warn = tot.missing ? '<p class="note">' + esc(tn('debts.unconverted', tot.missing)) + '</p>' : '';
     var more = compact ? '<button type="button" class="ghost upmore" data-act="view" data-view="debts">' + esc(t('debts.manage')) + '</button>' : '';
     var demoNote = S.demo ? '<p class="note">' + esc(t('settings.demoNote')) + '</p>' : '';
-    el.innerHTML = head + totals + form + list + warn + more + demoNote;
+    el.innerHTML = head + totals + form + payForm + list + warn + more + demoNote;
   }
 
   /* ---------- accounts & internal transfers UI (Etapa 2) ---------- */
@@ -2106,10 +2368,12 @@
   }
 
   function accountMonthTotals(a, ym) {
-    var inc = 0, exp = 0;
+    var inc = 0, exp = 0, base = getCfg().cur, own = a.cur || base;
     getTx(ym || S.viewYM).forEach(function (x) {
       if (x.acc !== a.id) return;
-      if (x.t === 'i') inc += x.a; else exp += x.a;
+      var v = txInCurrency(x, own, base);
+      if (v == null) return;
+      if (x.t === 'i') inc += v; else exp += v;
     });
     return { inc: r2(inc), exp: r2(exp) };
   }
@@ -2125,6 +2389,7 @@
   function renderAccounts() {
     var el = $('#accounts');
     if (!el) return;
+    balanceMissing = {};
     var accs = getAccounts(), xfers = getTransfers();
     var cons = consolidatedBalance();
     var head = '<div class="accthead"><div class="accttotal"><span class="lab">' + esc(t('accounts.total')) + '</span>' +
@@ -2183,6 +2448,7 @@
     el.innerHTML = '<div class="ct">' + esc(t('accounts.title')) + '<span class="sub">' + esc(t('accounts.sub')) + '</span></div>' +
       head + '<div class="acctgrid">' + cards + '</div>' +
       (cons.missing ? '<p class="note">' + esc(tn('accounts.unconverted', cons.missing)) + '</p>' : '') +
+      (Object.keys(balanceMissing).length ? '<p class="note">' + esc(t('accounts.rateMissing')) + '</p>' : '') +
       '<div class="xftitle"><span>' + esc(t('transfer.history')) + '</span><span class="sub">' + esc(t('transfer.listSub')) + '</span></div>' +
       list + (S.demo ? '<p class="note">' + esc(t('settings.demoNote')) + '</p>' : '');
   }
@@ -2304,50 +2570,74 @@
     var victim = accById(id, S.accounts);
     var fallback = S.accounts.find(function (a) { return a.id !== id; });
     if (!victim || !fallback) return;
-    var fid = fallback.id, delCur = victim.cur;
-    S.accounts = S.accounts.filter(function (a) { return a.id !== id; });
+    var fid = fallback.id, base = getCfg().cur;
+
+    /* Preflight: se resuelven todas las tasas antes de modificar nada. Si
+       el usuario cancela alguna, la cuenta NO se elimina. */
+    var moves = [], extraRates = {};
     Object.keys(S.months).forEach(function (ym) {
-      S.months[ym].forEach(function (tx) { if (tx.acc === id) tx.acc = fid; });
+      S.months[ym].forEach(function (tx) {
+        if (tx.acc !== id) return;
+        var v = txInCurrency(tx, fallback.cur, base);
+        if (v == null) {
+          /* Sin `cur`, `a` esta en la moneda base: no se puede usar la
+             divisa de la cuenta eliminada como origen de la conversion. */
+          var src = tx.cur || base;
+          if (!(src in extraRates)) extraRates[src] = requireRate(src, fallback.cur);
+          var r = extraRates[src];
+          if (r == null) return;
+          v = r2((tx.orig > 0 ? tx.orig : tx.a) * r);
+        }
+        moves.push({ tx: tx, v: v });
+      });
     });
-    S.cfg.recurring.forEach(function (r) { if (r.acc === id) r.acc = fid; });
-    /* Las transferencias se reasignan a la cuenta de respaldo conservando
-       el importe recibido. Si la reasignacion las dejara entre la misma
-       cuenta, se eliminan pero se ajusta el saldo inicial del superviviente. */
-    var kept = [];
+    if (Object.keys(extraRates).some(function (k) { return extraRates[k] == null; })) {
+      toast(t('fx.rateRequired'));
+      return;
+    }
+
+    var adj = {};
+    function credit(accId, amount) { adj[accId] = r2((adj[accId] || 0) + amount); }
+    moves.forEach(function (m) {
+      m.tx.acc = fid;
+      /* El movimiento entra en la cuenta de respaldo: se compensa su saldo
+         inicial para que el traspaso no altere el saldo de nadie. */
+      credit(fid, m.tx.t === 'i' ? -m.v : m.v);
+    });
+    /* Las transferencias que tocan la cuenta se eliminan y su efecto se
+       incorpora al saldo inicial de los supervivientes. Asi no queda
+       ninguna referencia rota ni se inventan tasas 1:1. */
     S.transfers.forEach(function (x) {
-      var from = x.from === id ? fid : x.from;
-      var to = x.to === id ? fid : x.to;
-      var amt = x.a, rate = x.rate;
-      var fromChanged = x.from === id, toChanged = x.to === id;
-      if (from === to) {
-        var other = accById(from, S.accounts);
-        if (other) {
-          other.initial = r2((other.initial || 0) + (fromChanged && !toChanged ? amt * rate : amt));
-        }
-        return;
-      }
-      if (fromChanged) {
-        var cv = fxRate(delCur, accCur(from));
-        if (cv != null && cv > 0) {
-          var na = r2(amt * cv);
-          if (na > 0) { rate = r2((amt * rate) / na); amt = na; }
-        }
-      }
-      if (toChanged) {
-        var cv2 = fxRate(delCur, accCur(to));
-        if (cv2 != null && cv2 > 0) rate = r2(rate * cv2);
-      }
-      kept.push({ id: x.id, from: from, to: to, a: amt, rate: rate, d: x.d, n: x.n });
+      var fromV = x.from === id, toV = x.to === id;
+      if (!fromV && !toV) return;
+      if (!fromV) credit(x.from, x.a);
+      if (!toV) credit(x.to, -(x.a * x.rate));
     });
-    S.transfers = kept;
+    S.transfers = S.transfers.filter(function (x) { return x.from !== id && x.to !== id; });
+    Object.keys(adj).forEach(function (aid) {
+      var a = accById(aid, S.accounts);
+      if (a) a.initial = r2((a.initial || 0) + adj[aid]);
+    });
+
+    S.cfg.recurring.forEach(function (r) { if (r.acc === id) r.acc = fid; });
+    S.cfg.debts.forEach(function (d) {
+      (d.payments || []).forEach(function (p) { if (p.acc === id) p.acc = fid; });
+    });
+    if (S.payDraft && S.payDraft.acc === id) S.payDraft.acc = fid;
+    if (S.xfDraft) {
+      if (S.xfDraft.from === id) S.xfDraft.from = fid;
+      if (S.xfDraft.to === id) S.xfDraft.to = fid;
+    }
+    S.accounts = S.accounts.filter(function (a) { return a.id !== id; });
     if (S.accountFilter === id) S.accountFilter = 'all';
     if (S.addAcc === id) S.addAcc = fid;
     if (S.editAccount === id) { S.editAccount = null; S.accDraft = null; closeAccount(); }
     S.confirmDelAcc = null;
+    balanceMissing = {};
     persistCfg();
     renderAll();
     renderChips();
-    toast(t('accounts.deleted'));
+    saved(function () { toast(t('accounts.deleted')); });
   }
 
   /* ---------- internal transfer editor ---------- */
@@ -2420,24 +2710,32 @@
     captureXfForm();
     var d = xfDraft();
     var amt = parseAmount(d.amount);
-    var rate = parseAmount(d.rate == '' ? '1' : d.rate);
     if (d.from === d.to) { toast(t('transfer.sameError')); return; }
     if (!(amt > 0)) { toast(t('transfer.amountError')); var a = $('#xf-amount'); if (a) a.focus(); return; }
-    if (!(rate > 0)) { toast(t('transfer.rateError')); var r = $('#xf-rate'); if (r) r.focus(); return; }
     ensureEditable();
     var from = accById(d.from, S.accounts), to = accById(d.to, S.accounts);
     if (!from || !to) { toast(t('transfer.sameError')); return; }
-    if (from.cur === to.cur) rate = 1;
+    var srcCur = from.cur || getCfg().cur, destCur = to.cur || getCfg().cur;
+    var rate;
+    if (srcCur === destCur) {
+      rate = 1;
+    } else {
+      rate = parseAmount(d.rate == '' ? '' : d.rate);
+      /* Nunca se guarda una transferencia entre divisas distintas con 1:1
+         silencioso: si no hay tasa se pide y, al cancelar, no se guarda. */
+      if (!(rate > 0)) rate = requireRate(srcCur, destCur);
+      if (rate == null) { toast(t('fx.rateRequired')); var r = $('#xf-rate'); if (r) r.focus(); return; }
+    }
     S.transfers.push({
-      id: 'xf' + uid(), from: from.id, to: to.id, a: r2(amt), rate: r2(rate),
+      id: 'xf' + uid(), from: from.id, to: to.id, a: r2(amt),
+      cur: srcCur, orig: r2(amt), rate: rate6(rate),
       d: /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : TODAY_ISO,
       n: String(d.note || '').trim().slice(0, 60)
     });
     S.xfDraft = null;
-    persistCfg();
     closeTransfer();
     renderAll();
-    toast(t('transfer.added', { amount: moneyAcc(amt, from.cur) }));
+    saved(function () { toast(t('transfer.added', { amount: moneyAcc(amt, from.cur) })); });
   }
   function delTransfer(id) {
     ensureEditable();
@@ -2472,6 +2770,85 @@
   }
 
   /* ---------- settings ---------- */
+  /* Cambiar la moneda base no es un cambio cosmético: todo lo que estaba
+     guardado en la moneda anterior se convierte con tasas reales. Si falta
+     alguna, se pide antes de tocar el estado y se cancela al rechazarla. */
+  function changeBaseCurrency(next) {
+    var old = S.cfg.cur;
+    next = String(next || '').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(next) || next === old) return;
+    if (S.demo) {
+      S.cfg.cur = next;
+      demoCache = null;
+      renderAll();
+      renderChips();
+      if (S.openSettings) renderSettings();
+      return;
+    }
+
+    var needed = {}, ok = true;
+    function need(from) {
+      if (!ok || !from || from === next) return;
+      if (fxRate(from, next) == null) {
+        if (!(from in needed)) needed[from] = requireRate(from, next);
+        if (needed[from] == null) ok = false;
+      }
+    }
+    need(old);
+    Object.keys(S.months).forEach(function (ym) {
+      S.months[ym].forEach(function (tx) { need(tx.cur || old); });
+    });
+    (S.cfg.debts || []).forEach(function (d) {
+      need(d.cur || old);
+      (d.payments || []).forEach(function (p) { need(p.cur || d.cur || old); });
+    });
+    if (!ok) {
+      toast(t('settings.currencyCancelled'));
+      if (S.openSettings) renderSettings();
+      return;
+    }
+
+    var oldRate = fxRate(old, next);
+    if (oldRate == null) { toast(t('settings.currencyCancelled')); return; }
+    Object.keys(S.months).forEach(function (ym) {
+      S.months[ym].forEach(function (tx) {
+        var src = tx.cur || old;
+        var r = src === next ? 1 : fxRate(src, next);
+        if (r == null) { ok = false; return; }
+        if (tx.orig > 0 && tx.cur) {
+          tx.a = r2(tx.orig * r);
+        } else {
+          /* Movimiento heredado: `a` estaba en la moneda base anterior.
+             Se conserva ese importe como original y solo se convierte `a`. */
+          var legacy = r2(tx.a);
+          tx.orig = legacy;
+          tx.cur = old;
+          tx.a = r2(legacy * oldRate);
+        }
+      });
+    });
+    (S.cfg.debts || []).forEach(function (d) {
+      (d.payments || []).forEach(function (p) {
+        var src = p.cur || d.cur || old;
+        var r = src === next ? 1 : fxRate(src, next);
+        if (r == null) { ok = false; return; }
+        p.a = r2(p.amount * r);
+        p.rate = rate6(r);
+      });
+    });
+    if (!ok) { toast(t('settings.currencyCancelled')); return; }
+    S.cfg.cats.forEach(function (k) { k.budget = r2((k.budget || 0) * oldRate); });
+    S.cfg.saveTarget = r2((S.cfg.saveTarget || 0) * oldRate);
+    S.cfg.goal.target = r2((S.cfg.goal.target || 0) * oldRate);
+    S.cfg.goal.saved = r2((S.cfg.goal.saved || 0) * oldRate);
+    S.cfg.cur = next;
+    S.payDraft = null;
+    balanceMissing = {};
+    renderAll();
+    renderChips();
+    saved(function () { toast(t('settings.currencyRecalculated')); });
+  }
+
   function renderSettings() {
     var el = $('#sbody');
     var c = S.cfg;
@@ -2530,24 +2907,30 @@
 
   /* ---------- data sovereignty ---------- */
   function exportCsv() {
+    var base = getCfg().cur;
     var rows = [[
-      t('csv.date'), t('csv.type'), t('csv.category'), t('csv.note'), t('csv.amount'), t('csv.micro'),
-      t('csv.account'), t('csv.currency'), t('csv.original'), t('csv.destination')
+      t('csv.date'), t('csv.type'), t('csv.category'), t('csv.note'),
+      t('csv.originalAmount'), t('csv.originalCurrency'),
+      t('csv.convertedAmount'), t('csv.baseCurrency'),
+      t('csv.account'), t('csv.destination'), t('csv.micro')
     ]];
     getTx(S.viewYM).slice().sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; }).forEach(function (tx) {
       rows.push([
-        tx.d, tx.t === 'g' ? t('csv.expense') : t('csv.income'), catName(tx), tx.n, tx.a, tx.h ? t('csv.yes') : '',
-        accName(tx.acc), tx.cur || accCur(tx.acc), tx.orig || '', ''
+        tx.d, tx.t === 'g' ? t('csv.expense') : t('csv.income'), catName(tx), tx.n,
+        tx.orig > 0 ? tx.orig : tx.a, tx.cur || accCur(tx.acc), tx.a, base,
+        accName(tx.acc), '', tx.h ? t('csv.yes') : ''
       ]);
     });
     getTransfers().filter(function (x) { return x.d.slice(0, 7) === S.viewYM; })
       .sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; })
       .forEach(function (x) {
         var to = accById(x.to);
+        var srcCur = x.cur || accCur(x.from), orig = x.orig > 0 ? x.orig : x.a;
+        var inBase = convert(orig, srcCur, base);
         rows.push([
           x.d, t('transfer.csvType'), t('transfer.short'), x.n || (accName(x.from) + ' → ' + accName(x.to)),
-          x.a, '', accName(x.from), accCur(x.from), x.a,
-          moneyAcc(x.a * x.rate, to ? to.cur : getCfg().cur)
+          orig, srcCur, inBase == null ? '' : inBase, base,
+          accName(x.from), moneyAcc(x.a * x.rate, to ? to.cur : base), ''
         ]);
       });
     Storage.exportCsv('clearwallet-' + S.viewYM + '.csv', rows);
@@ -2600,6 +2983,7 @@
       S.recDraft = null;
       S.debtDraft = null;
       S.fxDraft = null;
+      S.payDraft = null;
       S.accDraft = null;
       S.editAccount = null;
       S.xfDraft = null;
@@ -2651,6 +3035,7 @@
     S.recDraft = null;
     S.debtDraft = null;
     S.fxDraft = null;
+    S.payDraft = null;
     S.openAcc = false;
     S.openXf = false;
     resetSearch();
@@ -2762,6 +3147,9 @@
       renderChips();
       renderAll();
     } else if (a === 'debt-add') addDebt();
+    else if (a === 'debt-pay') openDebtPayment(b.dataset.id);
+    else if (a === 'debt-pay-cancel') closeDebtPayment();
+    else if (a === 'debt-pay-save') saveDebtPayment();
     else if (a === 'debt-settle') settleDebt(b.dataset.id);
     else if (a === 'debt-del') delDebt(b.dataset.id);
     else if (a === 'fx-save') saveFxRate();
@@ -2777,18 +3165,9 @@
     var el = e.target;
     if (el.id === 'langsel' || el.id === 's-lang') { setLang(el.value); return; }
     if (el.id === 'd-cur' || el.id === 's-cur') {
-      if (S.demo) {
-        S.cfg.cur = el.value;
-        demoCache = null;
-        renderAll();
-        renderChips();
-        if (S.openSettings) renderSettings();
-      } else {
-        S.cfg.cur = el.value;
-        persistCfg();
-        renderAll();
-        renderChips();
-      }
+      if (el.id === 'd-cur') captureRecForm();
+      changeBaseCurrency(el.value);
+      if (S.openSettings) renderSettings();
       return;
     }
     if (el.id === 'acfilter') { S.accountFilter = el.value; S.limit = 60; renderList(); return; }
@@ -2864,6 +3243,8 @@
     if (['acc-name', 'acc-initial'].indexOf(e.target.id) >= 0) captureAccForm();
     if (['xf-amount', 'xf-rate', 'xf-date', 'xf-note'].indexOf(e.target.id) >= 0) captureXfForm();
     if (['debt-name', 'debt-amt', 'debt-note'].indexOf(e.target.id) >= 0) captureDebtForm();
+    if (['pay-amt', 'pay-acc', 'pay-date', 'pay-note'].indexOf(e.target.id) >= 0) capturePayForm();
+    if (e.target.id === 'amt') updateConvHint();
     if (['fx-rate', 'cv-amt'].indexOf(e.target.id) >= 0) captureFxForm();
   });
 
@@ -2894,6 +3275,11 @@
       e.preventDefault();
       var ab = $('[data-act="addcat"]');
       if (ab) ab.click();
+    }
+    if (e.key === 'Enter' && ['pay-amt', 'pay-note'].indexOf(e.target.id) >= 0) {
+      e.preventDefault();
+      capturePayForm();
+      saveDebtPayment();
     }
     if (e.key === 'Enter' && ['debt-name', 'debt-amt', 'debt-note'].indexOf(e.target.id) >= 0) {
       e.preventDefault();
@@ -2931,19 +3317,61 @@
   });
 
   /* ---------- service worker ---------- */
-  var refreshing = false;
+  /* Las actualizaciones nunca recargan la pagina por su cuenta: se avisa de
+     forma discreta y solo se aplican cuando el usuario lo pide y no hay
+     formularios o modales con datos sin guardar. */
+  var swWaiting = null, updateRequested = false, updateReady = false;
+  function hasUnsavedWork() {
+    /* Los editores y hojas llevan su propio estado en S. Mirar el valor de
+       inputs ocultos daria falsos positivos: p. ej. `#xf-rate` conserva "1"
+       despues de cerrar la hoja de transferencias. */
+    return !!(S.openAdd || S.openAcc || S.openXf || S.openSettings || S.editTx || S.payDraft);
+  }
+  function updateBar(show) {
+    var bar = document.getElementById('updatebar');
+    if (!bar) return;
+    bar.hidden = !show;
+    if (show) {
+      var msg = document.getElementById('update-msg'), btn = document.getElementById('update-btn');
+      if (msg) msg.textContent = t(updateReady ? 'update.ready' : 'update.available');
+      if (btn) btn.textContent = t('update.apply');
+    }
+  }
+  function applyUpdate() {
+    if (hasUnsavedWork()) { toast(t('update.unsaved')); return; }
+    updateRequested = true;
+    if (swWaiting) swWaiting.postMessage({ type: 'SKIP_WAITING' });
+    else window.location.reload();
+  }
   function registerSW() {
     if (!('serviceWorker' in navigator)) return;
-    var hadController = !!navigator.serviceWorker.controller;
+    var bar = document.createElement('div');
+    bar.id = 'updatebar';
+    bar.className = 'updatebar';
+    bar.hidden = true;
+    bar.innerHTML = '<span id="update-msg"></span><button type="button" class="ghost" id="update-btn"></button>';
+    document.body.appendChild(bar);
+    var btn = document.getElementById('update-btn');
+    if (btn) btn.addEventListener('click', applyUpdate);
     navigator.serviceWorker.addEventListener('controllerchange', function () {
-      // Skip the first-install claim; only reload when an update replaces an
-      // existing controller, so the first visit never flashes/reloads.
-      if (refreshing || !hadController) return;
-      refreshing = true;
-      window.location.reload();
+      if (updateRequested) window.location.reload();
     });
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {});
+      navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        function check() {
+          swWaiting = reg.waiting || null;
+          updateReady = !!swWaiting;
+          if (swWaiting) updateBar(true);
+        }
+        check();
+        reg.addEventListener('updatefound', function () {
+          var installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', function () {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) check();
+          });
+        });
+      }).catch(function () {});
     });
   }
 

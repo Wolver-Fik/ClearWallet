@@ -123,6 +123,9 @@
 
   /* ---------- Etapa 2: migration of accounts and transfers ---------- */
   function r2(n) { return Math.round(n * 100) / 100; }
+  /* Las tasas necesitan mas precision que los importes: redondear 1 USD =
+     0.0004 EUR a 2 decimales destruye la conversion. */
+  function rate6(n) { return Math.round(n * 1000000) / 1000000; }
   function today() { return new Date().toISOString().slice(0, 10); }
 
   function mainAccount(cur) {
@@ -154,15 +157,24 @@
   function normTransfer(x) {
     if (!x || typeof x !== 'object') return null;
     var a = Number(x.a != null ? x.a : x.amount);
-    var rate = Number(x.rate != null ? x.rate : 1);
+    var rate = Number(x.rate != null ? x.rate : NaN);
     var d = String(x.d || x.date || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) d = today();
     var from = String(x.from || ''), to = String(x.to || '');
     if (!(a > 0) || !from || !to || from === to) return null;
+    if (!isFinite(rate) || !(rate > 0)) rate = 1;
+    /* `cur`/`orig` hacen explicita la moneda de origen. Las transferencias
+       heredadas no las tenian: se infieren de la cuenta de origen. */
+    var cur = String(x.cur || '').toUpperCase();
+    if (!/^[A-Z]{3}$/.test(cur)) cur = '';
+    var orig = Number(x.orig);
     return {
       id: String(x.id || ('xf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5))).slice(0, 40),
       from: from, to: to, a: r2(a),
-      rate: (isFinite(rate) && rate > 0) ? rate : 1,
+      cur: cur, orig: isFinite(orig) && orig > 0 ? r2(orig) : r2(a),
+      /* Nunca se inventa una tasa 1:1 entre divisas distintas: si no viene
+         en el respaldo se marca como heredada y la app la recalcula. */
+      rate: rate6(rate),
       d: d, n: String(x.n || x.note || '').trim().slice(0, 60)
     };
   }
@@ -222,6 +234,8 @@
     return { cfg: cfg, months: outMonths, accounts: accounts, transfers: transfers };
   }
 
+  /* Devuelve true solo cuando la transaccion de IndexedDB ha terminado
+     correctamente. El aviso de exito de la app depende de esta promesa. */
   function writeIDB(data) {
     var attempt = writeChain.then(function () {
       return idbOpen().then(function (db) {
@@ -235,18 +249,20 @@
             schemaVersion: SCHEMA_VERSION, app: 'clearwallet', data: data,
             localStorage: localSnapshot(), updatedAt: new Date().toISOString()
           }, STATE_KEY);
-          tx.oncomplete = function () { resolve(); };
+          tx.oncomplete = function () { resolve(true); };
           tx.onerror = function () { reject(tx.error || new Error('Error de IndexedDB')); };
           tx.onabort = function () { reject(tx.error || new Error('Transaccion abortada')); };
         });
       });
     });
-    writeChain = attempt.catch(function () {});
-    return attempt.then(function () {
+    writeChain = attempt.catch(function () { return false; });
+    return attempt.then(function (ok) {
       clearStorageError();
+      return !!ok;
     }, function (e) {
       idbFailed = true;
       emitStorageError(e, 'IndexedDB');
+      return false;
     });
   }
 
@@ -441,19 +457,27 @@
     });
     memoryState = payload;
     pendingWrite = true;
-    /* La escritura principal es IndexedDB y recibe el estado directamente:
-       no depende del espacio libre en localStorage. */
-    writeIDB(payload).then(function () { pendingWrite = false; });
     savePreferences();
-    return !lastStorageError && !idbFailed;
+    /* La escritura principal es IndexedDB y recibe el estado directamente:
+       no depende del espacio libre en localStorage. La promesa se devuelve
+       al llamador para que no muestre exito hasta la confirmacion real. */
+    return writeIDB(payload).then(function (ok) {
+      pendingWrite = false;
+      return !!ok;
+    }, function () {
+      pendingWrite = false;
+      return false;
+    });
   }
 
   function clear() {
     memoryState = null;
     pruneLocalState();
-    idbDelete(STORE_STATE, STATE_KEY).catch(function () {});
-    idbClear(STORE_ACCOUNTS).catch(function () {});
-    idbClear(STORE_TRANSFERS).catch(function () {});
+    return Promise.all([
+      idbDelete(STORE_STATE, STATE_KEY),
+      idbClear(STORE_ACCOUNTS),
+      idbClear(STORE_TRANSFERS)
+    ]).then(function () { return true; }, function () { return false; });
   }
 
   /* ---------- downloads ---------- */
@@ -492,47 +516,138 @@
     download('clearwallet-backup-' + stamp() + '.json', JSON.stringify(payload, null, 2), 'application/json');
   }
 
-  /* Valida origen y estructura antes de sobrescribir el estado actual. */
+  /* Valida origen, integridad referencial e importes antes de sobrescribir
+     el estado actual. Un respaldo duplicado o con saldos imposibles se
+     rechaza por completo: nunca se restaura "a medias". */
   function validateBackup(data) {
+    function bad(msgText) { return { ok: false, msgText: msgText }; }
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      return { ok: false, msgText: 'El archivo no contiene un respaldo válido.' };
+      return bad('El archivo no contiene un respaldo válido.');
     }
     if (data.app && String(data.app).toLowerCase() !== 'clearwallet') {
-      return { ok: false, msgText: 'Este respaldo pertenece a otra aplicación y no se importará.' };
+      return bad('Este respaldo pertenece a otra aplicación y no se importará.');
     }
     if (data.appId && String(data.appId).toLowerCase() !== 'clearwallet') {
-      return { ok: false, msgText: 'Este respaldo pertenece a otra aplicación y no se importará.' };
+      return bad('Este respaldo pertenece a otra aplicación y no se importará.');
     }
     var sv = data.schemaVersion == null ? (typeof data.version === 'number' ? data.version : 1) : Number(data.schemaVersion);
     if (!isFinite(sv) || sv < 1 || sv > SCHEMA_VERSION) {
-      return { ok: false, msgText: 'La versión de esquema del respaldo no es compatible.' };
+      return bad('La versión de esquema del respaldo no es compatible.');
     }
     if (!data.cfg || typeof data.cfg !== 'object' || Array.isArray(data.cfg)) {
-      return { ok: false, msgText: 'El respaldo está dañado: falta la configuración.' };
+      return bad('El respaldo está dañado: falta la configuración.');
     }
     var markers = ['cur', 'cats', 'recurring', 'debts', 'rates', 'saveTarget', 'goal', 'accounts', 'transfers'];
     var known = markers.some(function (k) { return Object.prototype.hasOwnProperty.call(data.cfg, k); }) ||
       Array.isArray(data.accounts) || Array.isArray(data.transfers);
-    if (!known) {
-      return { ok: false, msgText: 'El respaldo está incompleto: la configuración no es reconocible.' };
-    }
+    if (!known) return bad('El respaldo está incompleto: la configuración no es reconocible.');
     if (data.months !== undefined && (typeof data.months !== 'object' || Array.isArray(data.months))) {
-      return { ok: false, msgText: 'El respaldo está dañado: el historial no es válido.' };
+      return bad('El respaldo está dañado: el historial no es válido.');
     }
-    /* Etapa 2: cuentas y transferencias pueden venir en la raiz (v3) o
-       anidadas en cfg (versiones preliminares); ambas son aceptadas. */
+
+    var ids = {}, duplicate = null;
+    function claim(id) {
+      var key = String(id == null ? '' : id);
+      if (!key) { duplicate = duplicate || 'id'; return; }
+      if (ids[key]) duplicate = duplicate || key;
+      ids[key] = 1;
+    }
+    function amountOK(v) { var n = Number(v); return isFinite(n) && n > 0; }
+    function finiteOK(v) { var n = Number(v); return v == null || isFinite(n); }
+    function nonNegativeOK(v) { var n = Number(v); return v == null || n === 0 || (isFinite(n) && n >= 0); }
+    function currencyOK(v) { return /^[A-Z]{3}$/.test(String(v || '').toUpperCase()); }
+    function dateOK(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')); }
+
+    /* Cuentas y transferencias pueden venir en la raiz (v3) o anidadas en
+       cfg (versiones preliminares); ambas son aceptadas. */
     var accounts = Array.isArray(data.accounts) ? data.accounts :
-      ((data.cfg && Array.isArray(data.cfg.accounts)) ? data.cfg.accounts : null);
+      ((Array.isArray(data.cfg.accounts) ? data.cfg.accounts : null));
     var transfers = Array.isArray(data.transfers) ? data.transfers :
-      ((data.cfg && Array.isArray(data.cfg.transfers)) ? data.cfg.transfers : null);
-    if (accounts && accounts.some(function (a) { return !a || typeof a !== 'object' || !a.id; })) {
-      return { ok: false, msgText: 'El respaldo está dañado: las cuentas no son válidas.' };
+      ((Array.isArray(data.cfg.transfers) ? data.cfg.transfers : null));
+    var accIds = {};
+    if (accounts) {
+      if (!Array.isArray(accounts) || accounts.some(function (a) { return !a || typeof a !== 'object' || !a.id; })) {
+        return bad('El respaldo está dañado: las cuentas no son válidas.');
+      }
+      var badAccount = accounts.some(function (a) {
+        claim(a.id);
+        accIds[String(a.id)] = 1;
+        return !currencyOK(a.cur || a.currency) || !finiteOK(a.initial != null ? a.initial : a.balance);
+      });
+      if (badAccount) return bad('El respaldo contiene un saldo inicial o una divisa de cuenta inválida.');
     }
-    if (transfers && transfers.some(function (x) { return !x || typeof x !== 'object' || !x.from || !x.to; })) {
-      return { ok: false, msgText: 'El respaldo está dañado: las transferencias no son válidas.' };
+    if (transfers) {
+      if (!Array.isArray(transfers) || transfers.some(function (x) { return !x || typeof x !== 'object' || !x.from || !x.to; })) {
+        return bad('El respaldo está dañado: las transferencias no son válidas.');
+      }
+      var badTransfer = transfers.some(function (x) {
+        claim(x.id);
+        var rate = Number(x.rate);
+        var invalid = !amountOK(x.a != null ? x.a : x.amount) || !isFinite(rate) || !(rate > 0) || x.from === x.to ||
+          (accounts && (!accIds[String(x.from)] || !accIds[String(x.to)]));
+        if (x.orig != null && !amountOK(x.orig)) return true;
+        return invalid;
+      });
+      if (badTransfer) return bad('El respaldo contiene transferencias con importes, tasas o cuentas inválidas.');
     }
+
+    var debts = Array.isArray(data.cfg.debts) ? data.cfg.debts : [];
+    var recs = Array.isArray(data.cfg.recurring) ? data.cfg.recurring : [];
+    var badDebt = debts.some(function (d) {
+      if (!d || typeof d !== 'object') return true;
+      claim(d.id);
+      if (!amountOK(d.amount != null ? d.amount : d.a) || !currencyOK(d.cur) || !dateOK(d.date || d.settledAt)) return true;
+      var pays = d.payments || [];
+      if (!Array.isArray(pays)) return true;
+      return pays.some(function (p) {
+        if (!p || typeof p !== 'object') return true;
+        claim(p.id);
+        return !amountOK(p.amount) || !currencyOK(p.cur) || !dateOK(p.d) ||
+          !isFinite(Number(p.rate)) || !(Number(p.rate) > 0) ||
+          (accounts && p.acc && !accIds[String(p.acc)]);
+      });
+    });
+    if (badDebt) return bad('El respaldo contiene deudas, cuotas o importes inválidos.');
+    var badRec = recs.some(function (r) {
+      if (!r || typeof r !== 'object') return true;
+      claim(r.id);
+      var day = Number(r.day != null ? r.day : r.d);
+      return !amountOK(r.amount != null ? r.amount : r.a) || !isFinite(day) || day < 1 || day > 31 ||
+        (accounts && r.acc && !accIds[String(r.acc)]);
+    });
+    if (badRec) return bad('El respaldo contiene pagos fijos o importes inválidos.');
+    if (data.cfg.rates && typeof data.cfg.rates === 'object') {
+      var badRate = Object.keys(data.cfg.rates).some(function (k) {
+        return !/^[A-Z]{3}>[A-Z]{3}$/.test(k) || !amountOK(data.cfg.rates[k]);
+      });
+      if (badRate) return bad('El respaldo contiene tasas de cambio inválidas.');
+    }
+    if (data.cfg.cats && Array.isArray(data.cfg.cats)) {
+      var badCat = data.cfg.cats.some(function (c) {
+        return !c || typeof c !== 'object' || !c.id || (c.budget != null && !nonNegativeOK(c.budget));
+      });
+      if (badCat) return bad('El respaldo contiene categorías o presupuestos inválidos.');
+    }
+
+    var months = data.months || {};
+    var badTx = Object.keys(months).some(function (ym) {
+      if (!validMonthKey(ym) || !Array.isArray(months[ym])) return true;
+      return months[ym].some(function (tx) {
+        if (!tx || typeof tx !== 'object') return true;
+        claim(tx.id);
+        if (!amountOK(tx.a) || (tx.orig != null && Number(tx.orig) > 0 && !amountOK(tx.orig))) return true;
+        if (tx.t !== 'g' && tx.t !== 'i') return true;
+        if (!dateOK(tx.d) || String(tx.d).slice(0, 7) !== ym) return true;
+        if (tx.orig != null && tx.cur && !currencyOK(tx.cur)) return true;
+        return !!(accounts && tx.acc && !accIds[String(tx.acc)]);
+      });
+    });
+    if (badTx) return bad('El respaldo contiene movimientos con importes, fechas o cuentas inválidos.');
+    if (duplicate) return bad('El respaldo contiene identificadores duplicados (' + duplicate + ').');
     return { ok: true, version: sv };
   }
+
+  function validMonthKey(k) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(k); }
 
   function readBackup(file) {
     return new Promise(function (resolve, reject) {

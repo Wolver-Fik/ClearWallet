@@ -38,7 +38,8 @@ window.CWI18N.pt = {
     title: 'Adicionar transação',
     amountLabel: 'Valor',
     noteLabel: 'Nota',
-    notePlaceholder: 'Nota (opcional): mercado, combustível, cinema…',
+    notePlaceholder: 'Nota (opcional): mercado, café…',
+    notePlaceholderIncome: 'Nota (opcional): salário, venda…',
     dateLabel: 'Data',
     categoryLabel: 'Categoria',
     micro: 'Pequenas despesas',
@@ -122,6 +123,12 @@ window.CWI18N.pt = {
     tooltipDay: '+{amount} neste dia'
   },
   fixed: {
+    income: {
+      paid: 'Recebido',
+      dueToday: 'Recebimento esperado hoje',
+      dueIn: { one: 'Recebimento esperado em {n} dia', other: 'Recebimento esperado em {n} dias' },
+      overdue: { one: 'Pendente de recebimento ({n} dia)', other: 'Pendente de recebimento ({n} dias)' }
+    },
     title: 'Pagamentos fixos e recorrentes',
     sub: 'Subscrições, renda, serviços',
     upcomingTitle: 'Próximos vencimentos',
@@ -191,7 +198,7 @@ window.CWI18N.pt = {
     deleted: 'Transação excluída',
     microTag: 'pequena',
     searchAria: 'Pesquisar movimentos',
-    searchPlaceholder: 'Pesquisar por nota, categoria, data ou valor…',
+    searchPlaceholder: 'Pesquisar nota, categoria ou data…',
     filtersAria: 'Filtrar movimentos',
     clearSearch: 'Limpar pesquisa',
     editAria: 'Editar movimento',
@@ -411,5 +418,45 @@ Object.assign(window.CWI18N.pt, {
     amountError: 'Escreva um valor maior que zero', rateError: 'Escreva uma taxa maior que zero',
     added: 'Transferência adicionada: {amount}', deleted: 'Transferência excluída', deleteAria: 'Excluir transferência',
     csvType: 'Transferência', demoSavings: 'Poupança mensal', demoCash: 'Recarga de dinheiro'
+  }
+});
+
+/* v1.6.0 — integridade multimoeda, prestações parciais e atualizações seguras */
+Object.assign(window.CWI18N.pt.csv, {
+  originalAmount: 'Valor original', originalCurrency: 'Moeda original',
+  convertedAmount: 'Valor convertido', baseCurrency: 'Moeda base'
+});
+Object.assign(window.CWI18N.pt.settings, {
+  currencyNote: 'Os valores, orçamentos, metas, dívidas e contas existentes são convertidos com as suas taxas; as taxas em falta são pedidas.',
+  currencyRecalculated: 'Moeda alterada e todos os valores recalculados.',
+  currencyCancelled: 'Alteração cancelada: introduza a taxa de câmbio em falta.'
+});
+Object.assign(window.CWI18N.pt.accounts, {
+  rateMissing: 'Sem taxa para esta moeda. Adicione-a em Definições → Taxas de câmbio.',
+  setRates: 'Definir taxas em falta'
+});
+Object.assign(window.CWI18N.pt.add, { converted: '≈ {amount} em {base} (taxa {rate})' });
+Object.assign(window.CWI18N.pt.fx, {
+  askRate: 'Introduza a taxa necessária para guardar esta operação: 1 {from} = ? {to}',
+  rateRequired: 'Introduza uma taxa antes de guardar'
+});
+Object.assign(window.CWI18N.pt.debts, {
+  remaining: 'Em aberto', paidSoFar: 'Pago', payments: 'Prestações pagas',
+  paymentsEmpty: 'Ainda não há prestações registadas.',
+  payInstallment: 'Pagar prestação', payAmount: 'Valor da prestação',
+  payAccount: 'Conta de origem/destino do dinheiro', payDate: 'Data do pagamento',
+  payNote: 'Nota (opcional)', paySave: 'Registar prestação', payCancel: 'Cancelar',
+  paymentAdded: 'Prestação registada: {amount}', paymentError: 'Introduza um valor maior que zero',
+  paymentTooHigh: 'A prestação não pode exceder o valor em aberto',
+  paymentTxNote: 'prestação de dívida', rateUsed: 'Taxa aplicada: 1 {from} = {rate} {to}',
+  settleRemaining: 'Liquidar saldo'
+});
+Object.assign(window.CWI18N.pt.fx, { invalid: 'Introduza uma taxa de câmbio válida.' });
+Object.assign(window.CWI18N.pt, {
+  update: {
+    available: 'Está disponível uma nova versão. Guarde o seu trabalho e aplique-a.',
+    apply: 'Atualizar agora',
+    ready: 'Atualização pronta. Guarde o seu trabalho para a aplicar.',
+    unsaved: 'Guarde ou descarte as alterações antes de atualizar.'
   }
 });

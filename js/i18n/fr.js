@@ -38,7 +38,8 @@ window.CWI18N.fr = {
     title: 'Ajouter une transaction',
     amountLabel: 'Montant',
     noteLabel: 'Note',
-    notePlaceholder: 'Note (facultatif) : courses, carburant, cinéma…',
+    notePlaceholder: 'Note (facultatif) : courses, café…',
+    notePlaceholderIncome: 'Note (facultatif) : salaire, vente…',
     dateLabel: 'Date',
     categoryLabel: 'Catégorie',
     micro: 'Petites dépenses',
@@ -122,6 +123,12 @@ window.CWI18N.fr = {
     tooltipDay: '+{amount} ce jour'
   },
   fixed: {
+    income: {
+      paid: 'Encaissé',
+      dueToday: 'Encaissement attendu aujourd’hui',
+      dueIn: { one: 'Encaissement attendu dans {n} jour', other: 'Encaissement attendu dans {n} jours' },
+      overdue: { one: 'En attente d’encaissement ({n} jour)', other: 'En attente d’encaissement ({n} jours)' }
+    },
     title: 'Paiements fixes et récurrents',
     sub: 'Abonnements, loyer, services',
     upcomingTitle: 'Prochaines échéances',
@@ -191,7 +198,7 @@ window.CWI18N.fr = {
     deleted: 'Transaction supprimée',
     microTag: 'petite',
     searchAria: 'Rechercher des mouvements',
-    searchPlaceholder: 'Rechercher par note, catégorie, date ou montant…',
+    searchPlaceholder: 'Chercher note, catégorie ou date…',
     filtersAria: 'Filtrer les mouvements',
     clearSearch: 'Effacer la recherche',
     editAria: 'Modifier le mouvement',
@@ -411,5 +418,45 @@ Object.assign(window.CWI18N.fr, {
     amountError: 'Saisissez un montant supérieur à zéro', rateError: 'Saisissez un taux supérieur à zéro',
     added: 'Transfert ajouté : {amount}', deleted: 'Transfert supprimé', deleteAria: 'Supprimer le transfert',
     csvType: 'Transfert', demoSavings: 'Épargne mensuelle', demoCash: 'Retrait d’espèces'
+  }
+});
+
+/* v1.6.0 — intégrité multidevise, versements partiels et mises à jour sûres */
+Object.assign(window.CWI18N.fr.csv, {
+  originalAmount: 'Montant d’origine', originalCurrency: 'Devise d’origine',
+  convertedAmount: 'Montant converti', baseCurrency: 'Devise de base'
+});
+Object.assign(window.CWI18N.fr.settings, {
+  currencyNote: 'Les montants, budgets, objectifs, dettes et comptes existants sont convertis avec vos taux ; les taux manquants sont demandés.',
+  currencyRecalculated: 'Devise modifiée et tous les montants recalculés.',
+  currencyCancelled: 'Modification annulée : saisissez le taux de change manquant.'
+});
+Object.assign(window.CWI18N.fr.accounts, {
+  rateMissing: 'Aucun taux pour cette devise. Ajoutez-le dans Réglages → Taux de change.',
+  setRates: 'Définir les taux manquants'
+});
+Object.assign(window.CWI18N.fr.add, { converted: '≈ {amount} en {base} (taux {rate})' });
+Object.assign(window.CWI18N.fr.fx, {
+  askRate: 'Saisissez le taux nécessaire pour enregistrer cette opération : 1 {from} = ? {to}',
+  rateRequired: 'Saisissez un taux avant d’enregistrer'
+});
+Object.assign(window.CWI18N.fr.debts, {
+  remaining: 'Restant dû', paidSoFar: 'Payé', payments: 'Versements effectués',
+  paymentsEmpty: 'Aucun versement enregistré.',
+  payInstallment: 'Payer un versement', payAmount: 'Montant du versement',
+  payAccount: 'Compte d’origine / de destination', payDate: 'Date du versement',
+  payNote: 'Note (facultative)', paySave: 'Enregistrer le versement', payCancel: 'Annuler',
+  paymentAdded: 'Versement enregistré : {amount}', paymentError: 'Saisissez un montant supérieur à zéro',
+  paymentTooHigh: 'Le versement ne peut pas dépasser le montant restant',
+  paymentTxNote: 'versement de dette', rateUsed: 'Taux appliqué : 1 {from} = {rate} {to}',
+  settleRemaining: 'Soldier le restant'
+});
+Object.assign(window.CWI18N.fr.fx, { invalid: 'Saisissez un taux de change valide.' });
+Object.assign(window.CWI18N.fr, {
+  update: {
+    available: 'Une nouvelle version est disponible. Enregistrez votre travail, puis appliquez-la.',
+    apply: 'Mettre à jour maintenant',
+    ready: 'Mise à jour prête. Enregistrez votre travail pour l’appliquer.',
+    unsaved: 'Enregistrez ou annulez vos modifications avant de mettre à jour.'
   }
 });

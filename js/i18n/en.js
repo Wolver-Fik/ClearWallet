@@ -38,7 +38,8 @@ window.CWI18N.en = {
     title: 'Add transaction',
     amountLabel: 'Amount',
     noteLabel: 'Note',
-    notePlaceholder: 'Note (optional): groceries, fuel, cinema…',
+    notePlaceholder: 'Note (optional): groceries, coffee…',
+    notePlaceholderIncome: 'Note (optional): salary, freelance…',
     dateLabel: 'Date',
     categoryLabel: 'Category',
     micro: 'Small expenses',
@@ -122,6 +123,12 @@ window.CWI18N.en = {
     tooltipDay: '+{amount} on this day'
   },
   fixed: {
+    income: {
+      paid: 'Received',
+      dueToday: 'Expected today',
+      dueIn: { one: 'Expected in {n} day', other: 'Expected in {n} days' },
+      overdue: { one: 'Pending receipt ({n} day)', other: 'Pending receipt ({n} days)' }
+    },
     title: 'Fixed & Recurring Payments',
     sub: 'Subscriptions, rent, utilities',
     upcomingTitle: 'Upcoming Payments',
@@ -200,7 +207,7 @@ window.CWI18N.en = {
     noResults: 'No transactions matching "{query}".',
     recurringTag: 'recurring',
     searchAria: 'Search transactions',
-    searchPlaceholder: 'Search by note, category, date or amount…',
+    searchPlaceholder: 'Search by note, category or date…',
     filtersAria: 'Filter transactions'
   },
   settings: {
@@ -411,5 +418,45 @@ Object.assign(window.CWI18N.en, {
     amountError: 'Enter an amount greater than zero', rateError: 'Enter a rate greater than zero',
     added: 'Transfer added: {amount}', deleted: 'Transfer deleted', deleteAria: 'Delete transfer',
     csvType: 'Transfer', demoSavings: 'Monthly savings', demoCash: 'Cash top-up'
+  }
+});
+
+/* v1.6.0 — multichain integrity, debt installments and safe updates */
+Object.assign(window.CWI18N.en.csv, {
+  originalAmount: 'Original amount', originalCurrency: 'Original currency',
+  convertedAmount: 'Converted amount', baseCurrency: 'Base currency'
+});
+Object.assign(window.CWI18N.en.settings, {
+  currencyNote: 'Existing amounts, budgets, goals, debts and accounts are converted with your rates; missing rates are requested.',
+  currencyRecalculated: 'Currency changed and all amounts recalculated.',
+  currencyCancelled: 'Currency change cancelled: enter the missing exchange rate.'
+});
+Object.assign(window.CWI18N.en.accounts, {
+  rateMissing: 'No exchange rate for this currency. Add it in Settings → Manual exchange rates.',
+  setRates: 'Set missing rates'
+});
+Object.assign(window.CWI18N.en.add, { converted: '≈ {amount} in {base} (rate {rate})' });
+Object.assign(window.CWI18N.en.fx, {
+  askRate: 'Enter the rate needed to save this operation: 1 {from} = ? {to}',
+  rateRequired: 'Enter a rate before saving'
+});
+Object.assign(window.CWI18N.en.debts, {
+  remaining: 'Outstanding', paidSoFar: 'Paid', payments: 'Installments paid',
+  paymentsEmpty: 'No installments recorded yet.',
+  payInstallment: 'Pay installment', payAmount: 'Installment amount',
+  payAccount: 'Account money comes from / goes to', payDate: 'Payment date',
+  payNote: 'Note (optional)', paySave: 'Record installment', payCancel: 'Cancel',
+  paymentAdded: 'Installment recorded: {amount}', paymentError: 'Enter an amount greater than zero',
+  paymentTooHigh: 'The installment cannot exceed the outstanding amount',
+  paymentTxNote: 'debt installment', rateUsed: 'Rate applied: 1 {from} = {rate} {to}',
+  settleRemaining: 'Settle outstanding'
+});
+Object.assign(window.CWI18N.en.fx, { invalid: 'Enter a valid exchange rate.' });
+Object.assign(window.CWI18N.en, {
+  update: {
+    available: 'A new version is available. Save your work, then apply it.',
+    apply: 'Update now',
+    ready: 'Update ready. Save your work to apply it.',
+    unsaved: 'Save or discard your changes before updating.'
   }
 });
