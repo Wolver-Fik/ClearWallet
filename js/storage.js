@@ -458,8 +458,10 @@
   function exportBackup(state) {
     var payload = {
       app: 'ClearWallet',
+      appId: 'clearwallet',
       schemaVersion: SCHEMA_VERSION,
       version: 3,
+      exportDate: stamp(),
       exportedAt: new Date().toISOString(),
       cfg: state.cfg,
       months: state.months || {},
@@ -475,6 +477,9 @@
       return { ok: false, msgText: 'El archivo no contiene un respaldo válido.' };
     }
     if (data.app && String(data.app).toLowerCase() !== 'clearwallet') {
+      return { ok: false, msgText: 'Este respaldo pertenece a otra aplicación y no se importará.' };
+    }
+    if (data.appId && String(data.appId).toLowerCase() !== 'clearwallet') {
       return { ok: false, msgText: 'Este respaldo pertenece a otra aplicación y no se importará.' };
     }
     var sv = data.schemaVersion == null ? (typeof data.version === 'number' ? data.version : 1) : Number(data.schemaVersion);

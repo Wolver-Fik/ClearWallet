@@ -29,6 +29,8 @@ ClearWallet is a single-screen personal finance app with a modern dark bento das
 - **Manual exchange rates, 100% offline** — enter your own rates and convert amounts without any network request.
 - **Multiple accounts and wallets** — cash, bank, card, savings or custom accounts with their own currency, initial balance and colour.
 - **Internal transfers** — move money between accounts with optional conversion rate, date and note; they never count as income or expenses.
+- **Accounts & transfers in backups** — JSON exports include `schemaVersion`, `appId`, export date, accounts and transfers; a backup from another app is rejected before anything is overwritten.
+- **60fps lists** — movements render 60 at a time and recurring payments / transfers use a "show more" expander, keeping the DOM small on mobile.
 - **8 languages** — English, Spanish, Portuguese, French, Italian, German, Russian and Japanese.
 - **Global currencies** — automatic currency detection from the browser region/timezone and exact `Intl.NumberFormat` formatting.
 - **Data sovereignty** — JSON backup/restore and monthly CSV export. No account, no server, no tracking.
@@ -112,6 +114,8 @@ ClearWallet es una aplicación de finanzas personales de una sola pantalla, con 
 - **Comparación mensual por categoría** — consulta la evolución de cada categoría mes a mes con cifras comparadas.
 - **Deudas y préstamos** — registra lo que debes y lo que te deben, con liquidación rápida en un clic.
 - **Tasas de cambio manuales 100% offline** — introduce tus propias tasas y convierte importes sin ninguna petición de red.
+- **Cuentas y transferencias en el respaldo** — el JSON incluye `schemaVersion`, `appId`, fecha de exportación, cuentas y transferencias; una copia de otra app se rechaza antes de sobrescribir nada.
+- **Listas a 60 fps** — los movimientos se muestran de 60 en 60 y los pagos fijos y transferencias usan un desplegable «mostrar más» para mantener el DOM pequeño en móvil.
 - **8 idiomas** — inglés, español, portugués, francés, italiano, alemán, ruso y japonés.
 - **Divisas globales** — detección automática según la región o zona horaria del navegador y formato exacto con `Intl.NumberFormat`.
 - **Soberanía de datos** — respaldo y restauración en JSON, además de exportación mensual a CSV. Sin cuentas, sin servidor y sin rastreo.

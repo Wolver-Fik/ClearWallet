@@ -1680,7 +1680,7 @@
     if (!items.length) {
       list = '<p class="empty">' + esc(t('fixed.empty')) + '</p>';
     } else {
-      list = '<div class="reclist">' + items.map(function (it) {
+      var itemCards = items.map(function (it) {
         var r = it.rec, due = it.due, cls = dueClass(due);
         var status = dueStatusText(due);
         var pay = due.paid
@@ -1693,7 +1693,12 @@
           '<div class="recinfo"><div class="recname">' + esc(r.name) + '</div>' +
           '<div class="recmeta"><span class="recstatus ' + cls + '">' + esc(status) + '</span> · ' + esc(t('fixed.monthlyDay', { day: r.day })) + ' · ' + esc(catNameById(r.cat)) + ' · ' + esc(accName(r.acc)) + '</div></div></div>' +
           '<div class="recright"><span class="recamt">' + money(r.amount, true) + '</span>' + pay + rm + '</div></div>';
-      }).join('') + '</div>';
+      });
+      var firstItems = itemCards.slice(0, 30).join('');
+      var restItems = itemCards.slice(30).join('');
+      list = '<div class="reclist">' + firstItems + '</div>' +
+        (restItems ? '<details class="show-more"><summary class="ghost">' + esc(t('list.showMore', { n: itemCards.length - 30 })) +
+          '</summary><div class="reclist">' + restItems + '</div></details>' : '');
     }
     $('#fixed').innerHTML = head + form + '<div class="recsep"></div>' + list +
       (S.demo ? '<p class="note">' + t('fixed.demoNote') + '</p>' : '');
@@ -2135,7 +2140,7 @@
     if (!xfers.length) {
       list = '<p class="empty">' + esc(t('transfer.empty')) + '</p>';
     } else {
-      list = '<div class="xflist">' + xfers.slice().sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; }).map(function (x) {
+      var xferCards = xfers.slice().sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; }).map(function (x) {
         var toAcc = accById(x.to);
         var converted = moneyAcc(x.a * x.rate, toAcc ? toAcc.cur : getCfg().cur);
         var del = S.demo ? '' : '<button type="button" class="icon danger xfdel" data-act="del-transfer" data-id="' + esc(x.id) + '" aria-label="' + esc(t('transfer.deleteAria')) + '">' +
@@ -2146,7 +2151,12 @@
           '<span class="xfamt">' + esc(moneyAcc(x.a, accCur(x.from))) +
           '<small>→ ' + esc(converted) + '</small></span>' +
           '<span class="xfdate">' + esc(x.d.slice(5).replace('-', '/')) + '</span>' + del + '</div>';
-      }).join('') + '</div>';
+      });
+      var firstXfers = xferCards.slice(0, 20).join('');
+      var restXfers = xferCards.slice(20).join('');
+      list = '<div class="xflist">' + firstXfers + '</div>' +
+        (restXfers ? '<details class="show-more"><summary class="ghost">' + esc(t('list.showMore', { n: xferCards.length - 20 })) +
+          '</summary><div class="xflist">' + restXfers + '</div></details>' : '');
     }
 
     el.innerHTML = '<div class="ct">' + esc(t('accounts.title')) + '<span class="sub">' + esc(t('accounts.sub')) + '</span></div>' +
