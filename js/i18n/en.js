@@ -1,5 +1,12 @@
 window.CWI18N = window.CWI18N || {};
 window.CWI18N.en = {
+  'install.button': 'Install app',
+  'install.guideTitle': 'Install on iPhone or iPad',
+  'install.step1': 'Tap the Share icon in Safari’s toolbar',
+  'install.step2': 'Choose “Add to Home Screen”',
+  'install.close': 'Close',
+  'install.buttonAria': 'Install app on this device',
+  'install.closeAria': 'Close installation guide',
   code: 'en',
   name: 'English',
   locale: 'en-US',

@@ -1,5 +1,12 @@
 window.CWI18N = window.CWI18N || {};
 window.CWI18N.fr = {
+  'install.button': 'Installer l’app',
+  'install.guideTitle': 'Installer sur iPhone ou iPad',
+  'install.step1': 'Touchez l’icône Partager dans la barre de Safari',
+  'install.step2': 'Choisissez « Sur l’écran d’accueil »',
+  'install.close': 'Fermer',
+  'install.buttonAria': 'Installer l’app sur cet appareil',
+  'install.closeAria': 'Fermer le guide d’installation',
   code: 'fr',
   name: 'Français',
   locale: 'fr-FR',

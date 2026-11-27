@@ -3,7 +3,7 @@
 
 /* Etapa 2: subir version con cada cambio. Solo se purga CacheStorage;
    IndexedDB (clearwallet_db) y localStorage nunca se borran aqui. */
-const CACHE = 'clearwallet-v1.5.0';
+const CACHE = 'clearwallet-v1.5.1';
 const PRECACHE = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const PRECACHE = [
   './js/i18n/ru.js',
   './js/i18n/ja.js',
   './js/storage.js',
+  './js/ios-install.js',
   './js/app.js',
   './icons/icon.svg',
   './icons/icon-180.png',

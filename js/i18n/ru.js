@@ -1,5 +1,12 @@
 window.CWI18N = window.CWI18N || {};
 window.CWI18N.ru = {
+  'install.button': 'Установить приложение',
+  'install.guideTitle': 'Установка на iPhone или iPad',
+  'install.step1': 'Нажмите значок «Поделиться» на панели Safari',
+  'install.step2': 'Выберите «На главный экран»',
+  'install.close': 'Закрыть',
+  'install.buttonAria': 'Установить приложение на этом устройстве',
+  'install.closeAria': 'Закрыть руководство по установке',
   code: 'ru',
   name: 'Русский',
   locale: 'ru-RU',
